@@ -1,4 +1,4 @@
-export type IconName = 'spark' | 'wires' | 'shield' | 'bolt' | 'layers' | 'code' | 'book' | 'menu' | 'close' | 'sun' | 'moon' | 'monitor' | 'arrow' | 'search' | 'folder' | 'sound' | 'chevron-down';
+export type IconName = 'spark' | 'wires' | 'shield' | 'bolt' | 'layers' | 'code' | 'book' | 'menu' | 'close' | 'sun' | 'moon' | 'monitor' | 'arrow' | 'search' | 'folder' | 'sound' | 'chevron-down' | 'mic' | 'loader';
 
 interface IconProps {
   name: IconName;
@@ -132,6 +132,21 @@ export function Icon({ name, className = '' }: IconProps) {
           <path className={common} d="M11 5L6 9H2v6h4l5 4V5z" />
           <path className={common} d="M15.54 8.46a5 5 0 010 7.07" />
           <path className={common} d="M19.07 4.93a10 10 0 010 14.14" />
+        </svg>
+      );
+    case 'mic':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+          <path className={common} d="M19 10v2a7 7 0 01-14 0v-2" />
+          <path className={common} d="M12 19v4" />
+          <path className={common} d="M8 23h8" />
+        </svg>
+      );
+    case 'loader':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M21 12a9 9 0 11-6.219-8.56" />
         </svg>
       );
     default:

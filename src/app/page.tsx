@@ -1,17 +1,6 @@
-import { getAllDocs } from '@/lib/mdx';
-import { getRepoConfig } from '@/lib/repo-config';
-import { HomePageClient } from './home-client';
+import { redirect } from 'next/navigation';
 
-// 서버에서 docs 데이터를 가져옴
+// 메인 페이지는 파일 브라우저로 리다이렉트
 export default function HomePage() {
-  const docs = getAllDocs();
-  const config = getRepoConfig();
-
-  return (
-    <HomePageClient
-      docs={docs}
-      repoName={config.name}
-      repoDescription={config.description}
-    />
-  );
+  redirect('/browse');
 }

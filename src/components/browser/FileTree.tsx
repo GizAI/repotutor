@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +18,33 @@ interface FileTreeProps {
   onNavigate?: () => void;
 }
 
+// Helper to get all parent paths of a given path
+function getParentPaths(path: string): string[] {
+  const parts = path.split('/');
+  const parents: string[] = [];
+  for (let i = 1; i <= parts.length; i++) {
+    parents.push(parts.slice(0, i).join('/'));
+  }
+  return parents;
+}
+
 export function FileTree({ entries, basePath = '/browse', onNavigate }: FileTreeProps) {
+  const pathname = usePathname();
+
+  // Extract current file path from pathname
+  const currentPath = useMemo(() => {
+    if (pathname.startsWith(basePath + '/')) {
+      return pathname.slice(basePath.length + 1);
+    }
+    return '';
+  }, [pathname, basePath]);
+
+  // Calculate which paths should be expanded to show the current file
+  const expandedPaths = useMemo(() => {
+    if (!currentPath) return new Set<string>();
+    return new Set(getParentPaths(currentPath));
+  }, [currentPath]);
+
   return (
     <div className="text-sm font-mono">
       {entries.map((entry) => (
@@ -28,6 +54,8 @@ export function FileTree({ entries, basePath = '/browse', onNavigate }: FileTree
           basePath={basePath}
           depth={0}
           onNavigate={onNavigate}
+          initialExpandedPaths={expandedPaths}
+          currentPath={currentPath}
         />
       ))}
     </div>
@@ -39,12 +67,37 @@ interface FileTreeNodeProps {
   basePath: string;
   depth: number;
   onNavigate?: () => void;
+  initialExpandedPaths: Set<string>;
+  currentPath: string;
 }
 
-function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps) {
+function FileTreeNode({ entry, basePath, depth, onNavigate, initialExpandedPaths, currentPath }: FileTreeNodeProps) {
   const pathname = usePathname();
-  const [isExpanded, setIsExpanded] = useState(depth < 1);
+
+  // Determine if this node should be initially expanded
+  const shouldBeExpanded = initialExpandedPaths.has(entry.path) || depth === 0;
+  const [isExpanded, setIsExpanded] = useState(shouldBeExpanded);
+
+  // Ref to track if we've scrolled to the active item
+  const nodeRef = useRef<HTMLAnchorElement>(null);
   const isActive = pathname === `${basePath}/${entry.path}`;
+
+  // Update expansion state when currentPath changes
+  useEffect(() => {
+    if (initialExpandedPaths.has(entry.path)) {
+      setIsExpanded(true);
+    }
+  }, [initialExpandedPaths, entry.path]);
+
+  // Scroll active item into view on mount
+  useEffect(() => {
+    if (isActive && nodeRef.current) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        nodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [isActive]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded((prev) => !prev);
@@ -53,11 +106,15 @@ function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps)
   const paddingLeft = depth * 16 + 8;
 
   if (entry.type === 'directory') {
+    const isInPath = initialExpandedPaths.has(entry.path);
+
     return (
       <div>
         <button
           onClick={toggleExpand}
-          className="flex w-full items-center gap-1.5 py-1.5 lg:py-1 px-2 hover:bg-[var(--bg-tertiary)] rounded-md transition-colors text-left active:bg-[var(--bg-tertiary)]"
+          className={`flex w-full items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors text-left active:bg-[var(--bg-tertiary)] ${
+            isInPath ? 'bg-[var(--accent)]/5' : 'hover:bg-[var(--bg-tertiary)]'
+          }`}
           style={{ paddingLeft }}
         >
           <motion.span
@@ -68,7 +125,9 @@ function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps)
             ▶
           </motion.span>
           <FolderIcon isOpen={isExpanded} />
-          <span className="text-[var(--text-primary)] truncate text-xs lg:text-sm">{entry.name}</span>
+          <span className={`truncate text-xs lg:text-sm ${isInPath ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+            {entry.name}
+          </span>
         </button>
 
         <AnimatePresence initial={false}>
@@ -87,6 +146,8 @@ function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps)
                   basePath={basePath}
                   depth={depth + 1}
                   onNavigate={onNavigate}
+                  initialExpandedPaths={initialExpandedPaths}
+                  currentPath={currentPath}
                 />
               ))}
             </motion.div>
@@ -98,11 +159,12 @@ function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps)
 
   return (
     <Link
+      ref={nodeRef}
       href={`${basePath}/${entry.path}`}
       onClick={onNavigate}
       className={`flex items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors active:scale-[0.98] ${
         isActive
-          ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+          ? 'bg-[var(--accent)]/10 text-[var(--accent)] font-medium'
           : 'hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
       }`}
       style={{ paddingLeft: paddingLeft + 14 }}

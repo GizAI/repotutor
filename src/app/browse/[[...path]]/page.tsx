@@ -13,14 +13,13 @@ export default async function BrowsePage({ params }: BrowsePageProps) {
   const config = getRepoConfig();
   const pathInfo = getPathInfo(relativePath);
 
-  // Root 또는 디렉토리인 경우 파일 트리 로드
-  let entries = null;
-  if (!pathInfo || pathInfo.type === 'directory') {
-    try {
-      entries = await readFileTree(relativePath, 3);
-    } catch {
-      entries = [];
-    }
+  // 사이드바용 루트 파일 트리 항상 로드 (depth 10으로 증가)
+  let entries: Awaited<ReturnType<typeof readFileTree>> | null = null;
+  try {
+    // 파일 뷰어에서도 사이드바에 파일 트리 표시를 위해 루트 트리 로드
+    entries = await readFileTree('', 10);
+  } catch {
+    entries = [];
   }
 
   // 마크다운 파일인 경우 sibling 문서 로드

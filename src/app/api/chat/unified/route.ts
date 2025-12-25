@@ -3,6 +3,13 @@
  *
  * Single endpoint for both AI modes with full session support.
  * NDJSON streaming for real-time UI updates.
+ *
+ * Enhanced with full Claude Agent SDK features:
+ * - Abort/cancel support
+ * - All stream events
+ * - Rich result metadata
+ * - Model selection
+ * - Hook events
  */
 
 import { NextRequest } from 'next/server';
@@ -17,6 +24,9 @@ interface ChatRequest {
   sessionId?: string;      // Resume existing session
   currentPath?: string;    // Current file being viewed
   history?: Array<{ role: string; content: string }>;
+  model?: string;          // Model selection (optional)
+  maxTurns?: number;       // Override max turns
+  maxBudget?: number;      // Override max budget USD
 }
 
 export async function POST(request: NextRequest) {
@@ -42,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: ChatRequest = await request.json();
-    const { message, mode, sessionId, currentPath, history = [] } = body;
+    const { message, mode, sessionId, currentPath, history = [], model, maxTurns, maxBudget } = body;
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: 'Message required' }), {
@@ -53,11 +63,23 @@ export async function POST(request: NextRequest) {
 
     const config = getRepoConfig();
 
+    // Create abort controller linked to request signal
+    const abortController = new AbortController();
+
+    // Link to request signal for client-side cancellation
+    request.signal.addEventListener('abort', () => {
+      abortController.abort();
+    });
+
     // Create stream
     const stream = new ReadableStream({
       async start(controller) {
         const send = (data: unknown) => {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
+          try {
+            controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
+          } catch {
+            // Stream closed, ignore
+          }
         };
 
         try {
@@ -69,6 +91,10 @@ export async function POST(request: NextRequest) {
               sessionId,
               config,
               send,
+              abortController,
+              model,
+              maxTurns,
+              maxBudget,
             });
           } else {
             // DeepAgents mode - LangGraph
@@ -79,19 +105,30 @@ export async function POST(request: NextRequest) {
               sessionId,
               config,
               send,
+              abortSignal: abortController.signal,
             });
           }
 
           controller.close();
         } catch (error) {
-          send({
-            type: 'error',
-            data: {
-              message: error instanceof Error ? error.message : 'Unknown error',
-            },
-          });
+          if ((error as Error).name === 'AbortError') {
+            send({
+              type: 'aborted',
+              data: { message: 'Request cancelled' },
+            });
+          } else {
+            send({
+              type: 'error',
+              data: {
+                message: error instanceof Error ? error.message : 'Unknown error',
+              },
+            });
+          }
           controller.close();
         }
+      },
+      cancel() {
+        abortController.abort();
       },
     });
 
@@ -117,8 +154,12 @@ async function streamClaudeCode(params: {
   sessionId?: string;
   config: ReturnType<typeof getRepoConfig>;
   send: (data: unknown) => void;
+  abortController: AbortController;
+  model?: string;
+  maxTurns?: number;
+  maxBudget?: number;
 }) {
-  const { message, currentPath, sessionId, config, send } = params;
+  const { message, currentPath, sessionId, config, send, abortController, model, maxTurns, maxBudget } = params;
 
   const { query } = await import('@anthropic-ai/claude-agent-sdk');
 
@@ -128,15 +169,24 @@ async function streamClaudeCode(params: {
     prompt = `[현재 파일: ${currentPath}]\n\n${message}`;
   }
 
+  // Track timing
+  const startTime = Date.now();
+
   const queryResult = query({
     prompt,
     options: {
       cwd: config.rootPath,
       includePartialMessages: true,
 
+      // Abort support
+      abortController,
+
       // Session management
       resume: sessionId,
       persistSession: true,
+
+      // Model selection (if provided)
+      ...(model && { model }),
 
       // System prompt
       systemPrompt: {
@@ -154,15 +204,87 @@ ${config.description ? `설명: ${config.description}` : ''}
       // Full tool access
       tools: { type: 'preset', preset: 'claude_code' },
 
-      // Limits
-      maxTurns: 30,
-      maxBudgetUsd: 1.0,
+      // Limits (with overrides)
+      maxTurns: maxTurns ?? 30,
+      maxBudgetUsd: maxBudget ?? 1.0,
       enableFileCheckpointing: true,
+
+      // Permission mode - allow edits without prompts for repo browsing
+      permissionMode: 'default',
+
+      // Hook events for monitoring
+      hooks: {
+        PreToolUse: [{
+          hooks: [async (input: Record<string, unknown>) => {
+            send({
+              type: 'hook',
+              data: {
+                event: 'PreToolUse',
+                tool: input.tool_name,
+                timestamp: Date.now(),
+              },
+            });
+            return { continue: true };
+          }],
+        }],
+        PostToolUse: [{
+          hooks: [async (input: Record<string, unknown>) => {
+            send({
+              type: 'hook',
+              data: {
+                event: 'PostToolUse',
+                tool: input.tool_name,
+                timestamp: Date.now(),
+              },
+            });
+            return {};
+          }],
+        }],
+        SessionStart: [{
+          hooks: [async () => {
+            send({
+              type: 'hook',
+              data: {
+                event: 'SessionStart',
+                timestamp: Date.now(),
+              },
+            });
+            return {};
+          }],
+        }],
+        SessionEnd: [{
+          hooks: [async (input: Record<string, unknown>) => {
+            send({
+              type: 'hook',
+              data: {
+                event: 'SessionEnd',
+                reason: input.reason,
+                timestamp: Date.now(),
+              },
+            });
+            return {};
+          }],
+        }],
+      },
     },
   });
 
-  // Stream SDK messages
+  // Track active content blocks
+  let currentBlockType: string | null = null;
+  let currentBlockId: string | null = null;
+
+  // Stream SDK messages - handle ALL event types
   for await (const sdkMsg of queryResult) {
+    // Check for abort
+    if (abortController.signal.aborted) {
+      try {
+        queryResult.interrupt();
+      } catch {
+        // Ignore interrupt errors
+      }
+      break;
+    }
+
     const m = sdkMsg as Record<string, unknown>;
 
     switch (m.type) {
@@ -174,6 +296,23 @@ ${config.description ? `설명: ${config.description}` : ''}
               model: m.model,
               tools: m.tools,
               sessionId: m.session_id,
+              cwd: m.cwd,
+            },
+          });
+        } else if (m.subtype === 'status') {
+          // Context compaction status
+          send({
+            type: 'status',
+            data: {
+              status: m.status, // 'compacting' or null
+            },
+          });
+        } else if (m.subtype === 'compact_boundary') {
+          send({
+            type: 'compact',
+            data: {
+              trigger: m.trigger,
+              preTokens: m.pre_tokens,
             },
           });
         }
@@ -182,7 +321,87 @@ ${config.description ? `설명: ${config.description}` : ''}
       case 'stream_event': {
         const event = m.event as Record<string, unknown>;
 
-        if (event.type === 'content_block_delta') {
+        // Message lifecycle events
+        if (event.type === 'message_start') {
+          const msg = event.message as Record<string, unknown>;
+          send({
+            type: 'message_start',
+            data: {
+              id: msg?.id,
+              model: msg?.model,
+              role: msg?.role,
+            },
+          });
+        } else if (event.type === 'message_stop') {
+          send({ type: 'message_stop', data: {} });
+        } else if (event.type === 'message_delta') {
+          const delta = event.delta as Record<string, unknown>;
+          send({
+            type: 'message_delta',
+            data: {
+              stopReason: delta?.stop_reason,
+            },
+          });
+        }
+
+        // Content block lifecycle
+        else if (event.type === 'content_block_start') {
+          const block = event.content_block as Record<string, unknown>;
+          const index = event.index;
+          currentBlockType = block.type as string;
+          currentBlockId = block.id as string || `block-${index}`;
+
+          if (block.type === 'tool_use') {
+            send({
+              type: 'tool_start',
+              data: {
+                name: block.name,
+                id: block.id,
+                index,
+              },
+            });
+          } else if (block.type === 'thinking') {
+            send({
+              type: 'thinking_start',
+              data: { index },
+            });
+          } else if (block.type === 'text') {
+            send({
+              type: 'text_start',
+              data: { index },
+            });
+          } else if (block.type === 'mcp_tool_use') {
+            send({
+              type: 'mcp_tool_start',
+              data: {
+                serverName: block.server_name,
+                toolName: block.name,
+                id: block.id,
+              },
+            });
+          } else if (block.type === 'server_tool_use') {
+            send({
+              type: 'server_tool_start',
+              data: {
+                name: block.name,
+                id: block.id,
+              },
+            });
+          }
+        } else if (event.type === 'content_block_stop') {
+          if (currentBlockType === 'thinking') {
+            send({ type: 'thinking_stop', data: {} });
+          } else if (currentBlockType === 'text') {
+            send({ type: 'text_stop', data: {} });
+          } else if (currentBlockType === 'tool_use') {
+            send({ type: 'tool_end', data: { id: currentBlockId } });
+          }
+          currentBlockType = null;
+          currentBlockId = null;
+        }
+
+        // Content deltas
+        else if (event.type === 'content_block_delta') {
           const delta = event.delta as Record<string, unknown>;
 
           if (delta.type === 'text_delta') {
@@ -191,15 +410,8 @@ ${config.description ? `설명: ${config.description}` : ''}
             send({ type: 'thinking', data: delta.thinking });
           } else if (delta.type === 'input_json_delta') {
             send({ type: 'tool_input', data: delta.partial_json });
-          }
-        } else if (event.type === 'content_block_start') {
-          const block = event.content_block as Record<string, unknown>;
-
-          if (block.type === 'tool_use') {
-            send({
-              type: 'tool_start',
-              data: { name: block.name, id: block.id },
-            });
+          } else if (delta.type === 'signature_delta') {
+            send({ type: 'signature', data: delta.signature });
           }
         }
         break;
@@ -216,17 +428,56 @@ ${config.description ? `설명: ${config.description}` : ''}
         });
         break;
 
-      case 'result':
+      case 'assistant':
+        // Full assistant message - useful for history
         send({
-          type: 'result',
+          type: 'assistant_message',
           data: {
-            sessionId: m.session_id,
-            costUsd: m.total_cost_usd,
-            turns: m.num_turns,
-            isError: m.is_error,
+            id: m.message_id,
           },
         });
         break;
+
+      case 'user':
+        // User message echo
+        send({
+          type: 'user_message',
+          data: {
+            id: m.message_id,
+          },
+        });
+        break;
+
+      case 'result': {
+        const endTime = Date.now();
+        const durationMs = endTime - startTime;
+
+        // Extract rich metadata
+        const result = m as Record<string, unknown>;
+        const usage = result.usage as Record<string, unknown> | undefined;
+
+        send({
+          type: 'result',
+          data: {
+            sessionId: result.session_id,
+            costUsd: result.total_cost_usd,
+            turns: result.num_turns,
+            isError: result.is_error,
+            durationMs,
+            // Rich usage metadata
+            usage: usage ? {
+              inputTokens: usage.input_tokens,
+              outputTokens: usage.output_tokens,
+              cacheReadTokens: usage.cache_read_input_tokens,
+              cacheCreationTokens: usage.cache_creation_input_tokens,
+            } : undefined,
+            // Error details if any
+            errors: result.is_error ? result.errors : undefined,
+            errorType: result.is_error ? result.error_type : undefined,
+          },
+        });
+        break;
+      }
     }
   }
 }
@@ -239,8 +490,9 @@ async function streamDeepAgents(params: {
   sessionId?: string;
   config: ReturnType<typeof getRepoConfig>;
   send: (data: unknown) => void;
+  abortSignal: AbortSignal;
 }) {
-  const { message, currentPath, history, sessionId, config, send } = params;
+  const { message, currentPath, history, sessionId, config, send, abortSignal } = params;
 
   const { ChatAnthropic } = await import('@langchain/anthropic');
   const { ChatOpenAI } = await import('@langchain/openai');
@@ -248,6 +500,8 @@ async function streamDeepAgents(params: {
   const { MemorySaver } = await import('@langchain/langgraph');
   const { HumanMessage, AIMessage } = await import('@langchain/core/messages');
   const { repoTools } = await import('@/lib/agent/tools');
+
+  const startTime = Date.now();
 
   // Choose model
   let model;
@@ -317,46 +571,59 @@ ${config.description ? `설명: ${config.description}` : ''}
     },
   });
 
-  // Stream
+  // Stream with abort support
   const stream = await agent.stream(
     { messages },
     {
       configurable: { thread_id: threadId },
       streamMode: 'values',
+      signal: abortSignal,
     }
   );
 
   let lastContent = '';
   let toolCount = 0;
 
-  for await (const chunk of stream) {
-    const msgs = chunk.messages || [];
-    const lastMsg = msgs[msgs.length - 1];
+  try {
+    for await (const chunk of stream) {
+      if (abortSignal.aborted) break;
 
-    if (!lastMsg) continue;
+      const msgs = chunk.messages || [];
+      const lastMsg = msgs[msgs.length - 1];
 
-    // Tool calls (AIMessage has tool_calls property)
-    const msgWithTools = lastMsg as { tool_calls?: Array<{ name: string; id?: string }> };
-    if (msgWithTools.tool_calls?.length) {
-      for (const tc of msgWithTools.tool_calls) {
-        toolCount++;
-        send({
-          type: 'tool_start',
-          data: { name: tc.name, id: tc.id || `tool-${toolCount}` },
-        });
+      if (!lastMsg) continue;
+
+      // Tool calls (AIMessage has tool_calls property)
+      const msgWithTools = lastMsg as { tool_calls?: Array<{ name: string; id?: string }> };
+      if (msgWithTools.tool_calls?.length) {
+        for (const tc of msgWithTools.tool_calls) {
+          toolCount++;
+          send({
+            type: 'tool_start',
+            data: { name: tc.name, id: tc.id || `tool-${toolCount}` },
+          });
+        }
+      }
+
+      // Text content
+      const content = lastMsg.content;
+      if (typeof content === 'string' && content !== lastContent) {
+        const newContent = content.slice(lastContent.length);
+        if (newContent) {
+          send({ type: 'text', data: newContent });
+        }
+        lastContent = content;
       }
     }
-
-    // Text content
-    const content = lastMsg.content;
-    if (typeof content === 'string' && content !== lastContent) {
-      const newContent = content.slice(lastContent.length);
-      if (newContent) {
-        send({ type: 'text', data: newContent });
-      }
-      lastContent = content;
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      send({ type: 'aborted', data: { message: 'Request cancelled' } });
+      return;
     }
+    throw error;
   }
+
+  const endTime = Date.now();
 
   // Result
   send({
@@ -366,6 +633,7 @@ ${config.description ? `설명: ${config.description}` : ''}
       costUsd: 0,
       turns: messages.length,
       isError: false,
+      durationMs: endTime - startTime,
     },
   });
 }
