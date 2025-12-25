@@ -35,53 +35,24 @@ interface SessionDetail {
   updatedAt: string;
 }
 
-// Password stored in sessionStorage for the browser session
-const PASSWORD_KEY = 'repotutor_password';
-
 export function useSessionManager() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [currentSession, setCurrentSession] = useState<SessionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Track current session ID for resume
   const currentSessionIdRef = useRef<string | null>(null);
 
-  // Get stored password
-  const getPassword = useCallback((): string | null => {
-    if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem(PASSWORD_KEY);
-  }, []);
-
-  // Set password
-  const setPassword = useCallback((password: string) => {
-    if (typeof window === 'undefined') return;
-    sessionStorage.setItem(PASSWORD_KEY, password);
-  }, []);
-
-  // Auth headers
-  const getAuthHeaders = useCallback(() => {
-    const password = getPassword();
-    if (!password) return {};
-    return { Authorization: `Bearer ${password}` };
-  }, [getPassword]);
-
-  // Fetch sessions from API
+  // Fetch sessions from API (cookie auth handled automatically by middleware)
   const fetchSessions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await fetch('/api/sessions?limit=30', {
-        headers: getAuthHeaders(),
+        credentials: 'same-origin',
       });
-
-      if (response.status === 401) {
-        setIsAuthenticated(false);
-        setIsLoading(false);
-        return;
-      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch sessions');
@@ -89,39 +60,18 @@ export function useSessionManager() {
 
       const data = await response.json();
       setSessions(data.sessions || []);
-      setIsAuthenticated(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
       setSessions([]);
     } finally {
       setIsLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   // Initial fetch
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
-
-  // Authenticate with password
-  const authenticate = useCallback(async (password: string): Promise<boolean> => {
-    try {
-      const response = await fetch('/api/sessions?limit=1', {
-        headers: { Authorization: `Bearer ${password}` },
-      });
-
-      if (response.ok) {
-        setPassword(password);
-        setIsAuthenticated(true);
-        await fetchSessions();
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  }, [setPassword, fetchSessions]);
 
   // Select and load a session
   const selectSession = useCallback(async (id: string): Promise<SessionDetail | null> => {
@@ -129,7 +79,7 @@ export function useSessionManager() {
 
     try {
       const response = await fetch(`/api/sessions/${id}`, {
-        headers: getAuthHeaders(),
+        credentials: 'same-origin',
       });
 
       if (!response.ok) {
@@ -147,7 +97,7 @@ export function useSessionManager() {
       setError(err instanceof Error ? err.message : 'Error');
       return null;
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   // Clear current session (for new chat)
   const clearCurrent = useCallback(() => {
@@ -174,14 +124,11 @@ export function useSessionManager() {
     sessions,
     currentSession,
     isLoading,
-    isAuthenticated,
     error,
-    authenticate,
     selectSession,
     clearCurrent,
     getResumeId,
     setCurrentSessionId,
     refresh,
-    getPassword,
   };
 }

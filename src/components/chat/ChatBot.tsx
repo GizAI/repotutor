@@ -46,21 +46,15 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
   const {
     sessions,
     currentSession,
-    isLoading: isLoadingSessions,
-    isAuthenticated,
-    authenticate,
     selectSession,
     clearCurrent,
     getResumeId,
     setCurrentSessionId,
     refresh,
-    getPassword,
   } = useSessionManager();
 
   // UI state
   const [input, setInput] = useState('');
-  const [password, setPasswordInput] = useState('');
-  const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [streamingThinking, setStreamingThinking] = useState('');
@@ -87,10 +81,10 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
 
   // Focus input
   useEffect(() => {
-    if (isOpen && !showSessions && isAuthenticated) {
+    if (isOpen && !showSessions) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, showSessions, isAuthenticated]);
+  }, [isOpen, showSessions]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -113,17 +107,6 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
   useEffect(() => {
     setLocalMessages([]);
   }, [currentSession?.id]);
-
-  // Handle authentication
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-
-    const success = await authenticate(password);
-    if (!success) {
-      setAuthError('Invalid password');
-    }
-  };
 
   // Send to unified API
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -150,18 +133,11 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
     abortControllerRef.current = new AbortController();
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      const pw = getPassword();
-      if (pw) {
-        headers['Authorization'] = `Bearer ${pw}`;
-      }
-
+      // Use credentials: 'same-origin' to send cookies automatically
       const response = await fetch('/api/chat/unified', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           message: trimmedInput,
           mode: 'claude-code',
@@ -309,68 +285,6 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
   }, [selectSession]);
 
   if (!isOpen) return null;
-
-  // Show authentication modal if not authenticated and password is required
-  if (!isAuthenticated && !isLoadingSessions) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, x: '100%' }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed inset-0 sm:inset-auto sm:right-0 sm:top-0 sm:h-screen sm:w-[420px] z-[90] flex flex-col bg-[var(--bg-primary)] border-l border-[var(--border-default)]"
-      >
-        {/* Header */}
-        <header className="flex items-center justify-between h-14 px-4 border-b border-[var(--border-default)]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)]">
-              <Icon name="spark" className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-medium text-[var(--text-primary)]">RepoTutor</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-          >
-            <Icon name="close" className="h-5 w-5" />
-          </button>
-        </header>
-
-        {/* Auth Form */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <form onSubmit={handleAuth} className="w-full max-w-xs space-y-4">
-            <div className="text-center mb-6">
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--accent)] mb-4">
-                <Icon name="shield" className="h-7 w-7 text-white" />
-              </div>
-              <h2 className="text-heading text-[var(--text-primary)]">Authentication</h2>
-              <p className="text-caption text-[var(--text-secondary)] mt-1">Enter password to continue</p>
-            </div>
-
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Password"
-              className="input py-3"
-              autoFocus
-            />
-
-            {authError && (
-              <p className="text-sm text-[var(--error)] text-center">{authError}</p>
-            )}
-
-            <button
-              type="submit"
-              className="btn btn-primary w-full py-3"
-            >
-              Continue
-            </button>
-          </form>
-        </div>
-      </motion.div>
-    );
-  }
 
   return (
     <AnimatePresence>

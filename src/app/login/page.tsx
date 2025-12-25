@@ -25,6 +25,8 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
+        // Store password in sessionStorage for API calls
+        sessionStorage.setItem('repotutor_password', password);
         router.push(redirect);
         router.refresh();
       } else {

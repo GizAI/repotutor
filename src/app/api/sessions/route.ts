@@ -138,12 +138,19 @@ function isValidPathSegment(segment: string): boolean {
 
 // GET /api/sessions - List Claude sessions from filesystem
 export async function GET(request: NextRequest) {
-  // Simple password auth
-  const authHeader = request.headers.get('authorization');
+  // Check auth - accept either cookie or Authorization header
   const password = process.env.REPOTUTOR_PASSWORD;
 
-  if (password && authHeader !== `Bearer ${password}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (password) {
+    const authCookie = request.cookies.get('repotutor_auth');
+    const authHeader = request.headers.get('authorization');
+
+    const cookieValid = authCookie?.value === password;
+    const headerValid = authHeader === `Bearer ${password}`;
+
+    if (!cookieValid && !headerValid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
   const searchParams = request.nextUrl.searchParams;

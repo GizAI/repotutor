@@ -22,6 +22,24 @@ interface ChatRequest {
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
+  // Check auth - accept either cookie or Authorization header
+  const password = process.env.REPOTUTOR_PASSWORD;
+
+  if (password) {
+    const authCookie = request.cookies.get('repotutor_auth');
+    const authHeader = request.headers.get('authorization');
+
+    const cookieValid = authCookie?.value === password;
+    const headerValid = authHeader === `Bearer ${password}`;
+
+    if (!cookieValid && !headerValid) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   try {
     const body: ChatRequest = await request.json();
     const { message, mode, sessionId, currentPath, history = [] } = body;
