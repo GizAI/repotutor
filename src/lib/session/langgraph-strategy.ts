@@ -103,7 +103,7 @@ ${this.options.repoDescription ? `설명: ${this.options.repoDescription}` : ''}
       });
 
       // Build message history
-      const messages: (HumanMessage | AIMessage)[] = [];
+      const messages: InstanceType<typeof HumanMessage | typeof AIMessage>[] = [];
 
       // Load history from context
       if (context?.history) {
@@ -151,9 +151,10 @@ ${this.options.repoDescription ? `설명: ${this.options.repoDescription}` : ''}
 
         if (!lastMessage) continue;
 
-        // Handle tool calls
-        if (lastMessage.tool_calls?.length > 0) {
-          for (const toolCall of lastMessage.tool_calls) {
+        // Handle tool calls (AIMessage has tool_calls property)
+        const msgWithTools = lastMessage as { tool_calls?: Array<{ name: string; id?: string }> };
+        if (msgWithTools.tool_calls?.length) {
+          for (const toolCall of msgWithTools.tool_calls) {
             toolCallCount++;
             yield {
               type: 'tool_start',

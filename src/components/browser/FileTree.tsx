@@ -57,18 +57,18 @@ function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps)
       <div>
         <button
           onClick={toggleExpand}
-          className="flex w-full items-center gap-1.5 py-1.5 lg:py-1 px-2 hover:bg-[var(--bg1)] rounded-md transition-colors text-left active:bg-[var(--bg1)]"
+          className="flex w-full items-center gap-1.5 py-1.5 lg:py-1 px-2 hover:bg-[var(--bg-tertiary)] rounded-md transition-colors text-left active:bg-[var(--bg-tertiary)]"
           style={{ paddingLeft }}
         >
           <motion.span
             animate={{ rotate: isExpanded ? 90 : 0 }}
             transition={{ duration: 0.15 }}
-            className="text-[var(--muted)] text-[10px]"
+            className="text-[var(--text-secondary)] text-[10px]"
           >
             ▶
           </motion.span>
           <FolderIcon isOpen={isExpanded} />
-          <span className="text-[var(--ink)] truncate text-xs lg:text-sm">{entry.name}</span>
+          <span className="text-[var(--text-primary)] truncate text-xs lg:text-sm">{entry.name}</span>
         </button>
 
         <AnimatePresence initial={false}>
@@ -103,7 +103,7 @@ function FileTreeNode({ entry, basePath, depth, onNavigate }: FileTreeNodeProps)
       className={`flex items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors active:scale-[0.98] ${
         isActive
           ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
-          : 'hover:bg-[var(--bg1)] text-[var(--muted)]'
+          : 'hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
       }`}
       style={{ paddingLeft: paddingLeft + 14 }}
     >
@@ -188,5 +188,5 @@ function getFileColor(extension: string): string {
     bash: '#89e051',
   };
 
-  return colors[extension.toLowerCase()] || 'var(--muted)';
+  return colors[extension.toLowerCase()] || 'var(--text-secondary)';
 }

@@ -263,7 +263,7 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [input, isLoading, messages, currentPath, getResumeId, setCurrentSessionId, refresh, getPassword]);
+  }, [input, isLoading, messages, currentPath, getResumeId, setCurrentSessionId, refresh]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

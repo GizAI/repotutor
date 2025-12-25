@@ -81,14 +81,14 @@ function FloatingButtons({ onSearchClick, onChatClick, isChatOpen }: FloatingBut
       {/* Search Button */}
       <button
         onClick={onSearchClick}
-        className="group flex items-center gap-2 px-4 py-3 bg-[var(--panel)] border border-[var(--line)] rounded-full shadow-lg hover:border-[var(--accent)] hover:shadow-xl transition-all"
+        className="group flex items-center gap-2 px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-full shadow-lg hover:border-[var(--accent)] hover:shadow-xl transition-all"
         title="검색 (Cmd+K)"
       >
-        <svg className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-5 h-5 text-[var(--text-secondary)] group-hover:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        <span className="hidden sm:inline text-sm text-[var(--muted)] group-hover:text-[var(--ink)]">검색</span>
-        <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--muted)] bg-[var(--bg1)] rounded">
+        <span className="hidden sm:inline text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">검색</span>
+        <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
           ⌘K
         </kbd>
       </button>
@@ -98,19 +98,19 @@ function FloatingButtons({ onSearchClick, onChatClick, isChatOpen }: FloatingBut
         onClick={onChatClick}
         className={`group flex items-center gap-2 px-4 py-3 rounded-full shadow-lg transition-all ${
           isChatOpen
-            ? 'bg-[var(--accent)] text-[var(--bg0)] border border-transparent'
-            : 'bg-[var(--panel)] border border-[var(--line)] hover:border-[var(--accent)] hover:shadow-xl'
+            ? 'bg-[var(--accent)] text-[var(--bg-primary)] border border-transparent'
+            : 'bg-[var(--bg-secondary)] border border-[var(--border-default)] hover:border-[var(--accent)] hover:shadow-xl'
         }`}
         title="AI 챗봇 (Cmd+/)"
       >
-        <svg className={`w-5 h-5 ${isChatOpen ? '' : 'text-[var(--muted)] group-hover:text-[var(--accent)]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={`w-5 h-5 ${isChatOpen ? '' : 'text-[var(--text-secondary)] group-hover:text-[var(--accent)]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
-        <span className={`hidden sm:inline text-sm ${isChatOpen ? '' : 'text-[var(--muted)] group-hover:text-[var(--ink)]'}`}>
+        <span className={`hidden sm:inline text-sm ${isChatOpen ? '' : 'text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]'}`}>
           {isChatOpen ? '닫기' : 'AI 챗봇'}
         </span>
         {!isChatOpen && (
-          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--muted)] bg-[var(--bg1)] rounded">
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
             ⌘/
           </kbd>
         )}

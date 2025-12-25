@@ -35,21 +35,21 @@ export function DocNavigation({ currentPath, siblings }: DocNavigationProps) {
   if (!prev && !next) return null;
 
   return (
-    <nav className="mt-12 pt-8 border-t border-[var(--line)]">
+    <nav className="mt-12 pt-8 border-t border-[var(--border-default)]">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Previous */}
         {prev ? (
           <Link
             href={`/browse/${prev.path}`}
-            className="group flex flex-col p-4 rounded-xl border border-[var(--line)] hover:border-[var(--accent)]/50 hover:bg-[var(--panel-soft)] transition-all"
+            className="group flex flex-col p-4 rounded-xl border border-[var(--border-default)] hover:border-[var(--accent)]/50 hover:bg-[var(--panel-soft)] transition-all"
           >
-            <span className="text-xs text-[var(--muted)] mb-1 flex items-center gap-1">
+            <span className="text-xs text-[var(--text-secondary)] mb-1 flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
               이전
             </span>
-            <span className="text-sm font-medium text-[var(--ink)] group-hover:text-[var(--accent)] transition-colors truncate">
+            <span className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors truncate">
               {prev.title}
             </span>
           </Link>
@@ -61,15 +61,15 @@ export function DocNavigation({ currentPath, siblings }: DocNavigationProps) {
         {next ? (
           <Link
             href={`/browse/${next.path}`}
-            className="group flex flex-col p-4 rounded-xl border border-[var(--line)] hover:border-[var(--accent)]/50 hover:bg-[var(--panel-soft)] transition-all text-right sm:items-end"
+            className="group flex flex-col p-4 rounded-xl border border-[var(--border-default)] hover:border-[var(--accent)]/50 hover:bg-[var(--panel-soft)] transition-all text-right sm:items-end"
           >
-            <span className="text-xs text-[var(--muted)] mb-1 flex items-center gap-1 justify-end">
+            <span className="text-xs text-[var(--text-secondary)] mb-1 flex items-center gap-1 justify-end">
               다음
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </span>
-            <span className="text-sm font-medium text-[var(--ink)] group-hover:text-[var(--accent)] transition-colors truncate">
+            <span className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors truncate">
               {next.title}
             </span>
           </Link>
@@ -92,7 +92,7 @@ export function TableOfContents({ headings, activeId }: TableOfContentsProps) {
 
   return (
     <nav className="space-y-1">
-      <h4 className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-3">
+      <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">
         목차
       </h4>
       <ul className="space-y-1">
@@ -105,7 +105,7 @@ export function TableOfContents({ headings, activeId }: TableOfContentsProps) {
                 ${heading.level === 2 ? 'pl-0' : heading.level === 3 ? 'pl-3' : 'pl-6'}
                 ${activeId === heading.id
                   ? 'text-[var(--accent)] font-medium'
-                  : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }
               `}
             >
@@ -130,7 +130,7 @@ export function DocHeader({ title, description, category, icon }: DocHeaderProps
   const iconEmoji = getIconEmoji(icon);
 
   return (
-    <header className="mb-8 pb-6 border-b border-[var(--line)]">
+    <header className="mb-8 pb-6 border-b border-[var(--border-default)]">
       {category && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg">{iconEmoji}</span>
@@ -139,11 +139,11 @@ export function DocHeader({ title, description, category, icon }: DocHeaderProps
           </span>
         </div>
       )}
-      <h1 className="text-2xl lg:text-4xl font-display font-bold text-[var(--ink)] mb-3">
+      <h1 className="text-2xl lg:text-4xl font-display font-bold text-[var(--text-primary)] mb-3">
         {title}
       </h1>
       {description && (
-        <p className="text-sm lg:text-base text-[var(--muted)] leading-relaxed">
+        <p className="text-sm lg:text-base text-[var(--text-secondary)] leading-relaxed">
           {description}
         </p>
       )}

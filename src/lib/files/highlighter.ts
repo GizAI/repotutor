@@ -30,8 +30,10 @@ const SUPPORTED_LANGUAGES: BundledLanguage[] = [
   'dockerfile',
   'toml',
   'xml',
-  'plaintext',
 ];
+
+// Fallback for unsupported languages
+const FALLBACK_LANGUAGE = 'text' as BundledLanguage;
 
 // Highlighter 초기화 (싱글톤)
 async function getHighlighter(): Promise<Highlighter> {
@@ -70,10 +72,10 @@ export async function highlightCode(
   const highlighter = await getHighlighter();
   const themeId = theme === 'dark' ? 'github-dark' : 'github-light';
 
-  // 지원되지 않는 언어는 plaintext로 폴백
+  // 지원되지 않는 언어는 text로 폴백
   const lang = SUPPORTED_LANGUAGES.includes(language as BundledLanguage)
     ? (language as BundledLanguage)
-    : 'plaintext';
+    : FALLBACK_LANGUAGE;
 
   const html = highlighter.codeToHtml(code, {
     lang,

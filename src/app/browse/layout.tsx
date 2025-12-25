@@ -6,7 +6,7 @@ export default function BrowseLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--bg0)] text-[var(--ink)]">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       {children}
     </div>
   );

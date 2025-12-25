@@ -13,7 +13,7 @@ function createHeading(level: 1 | 2 | 3 | 4) {
   return function Heading({ children, id }: { children: ReactNode; id?: string }) {
     const Tag = `h${level}` as const;
     return (
-      <Tag id={id} className={`font-display text-[var(--ink)] scroll-mt-24 group ${sizes[level]}`}>
+      <Tag id={id} className={`font-display text-[var(--text-primary)] scroll-mt-24 group ${sizes[level]}`}>
         {children}
         {id && (
           <a
@@ -30,12 +30,12 @@ function createHeading(level: 1 | 2 | 3 | 4) {
 
 // Paragraph
 function P({ children }: { children: ReactNode }) {
-  return <p className="text-[var(--muted)] font-body leading-relaxed mb-4">{children}</p>;
+  return <p className="text-[var(--text-secondary)] font-body leading-relaxed mb-4">{children}</p>;
 }
 
 // Strong/Bold
 function Strong({ children }: { children: ReactNode }) {
-  return <strong className="text-[var(--ink)] font-semibold">{children}</strong>;
+  return <strong className="text-[var(--text-primary)] font-semibold">{children}</strong>;
 }
 
 // Links
@@ -46,7 +46,7 @@ function A({ href, children }: { href?: string; children: ReactNode }) {
       href={href}
       target={isExternal ? '_blank' : undefined}
       rel={isExternal ? 'noopener noreferrer' : undefined}
-      className="text-[var(--accent)] hover:text-[var(--accent2)] underline underline-offset-2 transition-colors"
+      className="text-[var(--accent)] hover:text-[var(--accent-hover)] underline underline-offset-2 transition-colors"
     >
       {children}
       {isExternal && <span className="ml-1 text-xs">↗</span>}
@@ -65,7 +65,7 @@ function Ol({ children }: { children: ReactNode }) {
 
 function Li({ children }: { children: ReactNode }) {
   return (
-    <li className="flex items-start gap-2 text-[var(--muted)]">
+    <li className="flex items-start gap-2 text-[var(--text-secondary)]">
       <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--accent)] shrink-0" />
       <span>{children}</span>
     </li>
@@ -75,7 +75,7 @@ function Li({ children }: { children: ReactNode }) {
 // Blockquote
 function Blockquote({ children }: { children: ReactNode }) {
   return (
-    <blockquote className="border-l-3 border-[var(--accent)] pl-4 my-6 italic text-[var(--muted)]">
+    <blockquote className="border-l-3 border-[var(--accent)] pl-4 my-6 italic text-[var(--text-secondary)]">
       {children}
     </blockquote>
   );
@@ -83,13 +83,13 @@ function Blockquote({ children }: { children: ReactNode }) {
 
 // Horizontal Rule
 function Hr() {
-  return <hr className="border-none h-px bg-[var(--line)] my-8" />;
+  return <hr className="border-none h-px bg-[var(--border-default)] my-8" />;
 }
 
 // Inline Code
 function InlineCode({ children }: { children: ReactNode }) {
   return (
-    <code className="bg-[var(--panel)] border border-[var(--line)] rounded px-1.5 py-0.5 text-sm font-mono text-[var(--ink)]">
+    <code className="bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded px-1.5 py-0.5 text-sm font-mono text-[var(--text-primary)]">
       {children}
     </code>
   );
@@ -97,7 +97,7 @@ function InlineCode({ children }: { children: ReactNode }) {
 
 // Code Block with Mermaid support
 function Pre({ children }: { children: ReactNode }) {
-  const codeElement = children as React.ReactElement;
+  const codeElement = children as React.ReactElement<{ className?: string; children?: string }>;
   const className = codeElement?.props?.className || '';
   const content = codeElement?.props?.children || '';
   const language = className.replace('language-', '');
@@ -110,11 +110,11 @@ function Pre({ children }: { children: ReactNode }) {
   return (
     <div className="relative my-6 rounded-xl terminal overflow-hidden">
       {language && (
-        <div className="absolute top-3 right-3 text-[10px] tracking-[0.2em] uppercase text-[var(--muted)]">
+        <div className="absolute top-3 right-3 text-[10px] tracking-[0.2em] uppercase text-[var(--text-secondary)]">
           {language}
         </div>
       )}
-      <pre className="overflow-x-auto p-4 text-sm font-mono text-[var(--ink)] leading-relaxed">
+      <pre className="overflow-x-auto p-4 text-sm font-mono text-[var(--text-primary)] leading-relaxed">
         {children}
       </pre>
     </div>
@@ -125,11 +125,11 @@ function Pre({ children }: { children: ReactNode }) {
 function Card({ children, glow }: { children: ReactNode; glow?: boolean }) {
   return (
     <div
-      className={`relative rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5 my-6 backdrop-blur-md shadow-[0_0_0_1px_rgba(0,0,0,.35),0_40px_120px_var(--shadow)] ${glow ? 'overflow-hidden' : ''}`}
+      className={`relative rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5 my-6 backdrop-blur-md shadow-[0_0_0_1px_rgba(0,0,0,.35),0_40px_120px_var(--shadow-lg)] ${glow ? 'overflow-hidden' : ''}`}
     >
       {glow && (
         <div className="pointer-events-none absolute -inset-px rounded-2xl opacity-70 [mask-image:radial-gradient(120px_120px_at_20%_10%,black,transparent)]">
-          <div className="h-full w-full rounded-2xl bg-[conic-gradient(from_120deg_at_20%_10%,var(--accent),transparent_20%,var(--accent2),transparent_60%,var(--accent))]" />
+          <div className="h-full w-full rounded-2xl bg-[conic-gradient(from_120deg_at_20%_10%,var(--accent),transparent_20%,var(--accent-hover),transparent_60%,var(--accent))]" />
         </div>
       )}
       <div className="relative">{children}</div>
@@ -141,7 +141,7 @@ function Card({ children, glow }: { children: ReactNode; glow?: boolean }) {
 function Callout({ type = 'info', title, children }: { type?: 'info' | 'warning' | 'tip'; title?: string; children: ReactNode }) {
   const styles = {
     info: 'border-[var(--accent)]/30 bg-[var(--accent)]/5',
-    warning: 'border-[var(--accent2)]/30 bg-[var(--accent2)]/5',
+    warning: 'border-[var(--accent-hover)]/30 bg-[var(--accent-hover)]/5',
     tip: 'border-green-500/30 bg-green-500/5',
   };
   const icons: Record<string, string> = {
@@ -155,8 +155,8 @@ function Callout({ type = 'info', title, children }: { type?: 'info' | 'warning'
       <div className="flex items-start gap-3">
         <span className="text-lg shrink-0">{icons[type]}</span>
         <div>
-          {title && <div className="text-sm font-semibold text-[var(--ink)] mb-1">{title}</div>}
-          <div className="text-[11px] text-[var(--muted)]">{children}</div>
+          {title && <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">{title}</div>}
+          <div className="text-[11px] text-[var(--text-secondary)]">{children}</div>
         </div>
       </div>
     </div>
@@ -176,12 +176,12 @@ function Grid({ cols = 2, children }: { cols?: 2 | 3 | 4; children: ReactNode })
 // Feature card for grid items (simplified - using emoji instead of Icon)
 function Feature({ icon, title, children }: { icon?: string; title: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--bg1)]/70 p-4">
+    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-tertiary)]/70 p-4">
       <div className="flex items-center gap-2 mb-2">
         {icon && <span className="text-sm">{icon}</span>}
-        <span className="text-sm font-semibold text-[var(--ink)]">{title}</span>
+        <span className="text-sm font-semibold text-[var(--text-primary)]">{title}</span>
       </div>
-      <div className="text-[11px] text-[var(--muted)]">{children}</div>
+      <div className="text-[11px] text-[var(--text-secondary)]">{children}</div>
     </div>
   );
 }
@@ -191,9 +191,9 @@ function Terminal({ title, children }: { title?: string; children: ReactNode }) 
   return (
     <div className="my-6 rounded-xl terminal p-4">
       {title && (
-        <div className="mb-3 text-[10px] tracking-[0.26em] uppercase text-[var(--muted)]">{title}</div>
+        <div className="mb-3 text-[10px] tracking-[0.26em] uppercase text-[var(--text-secondary)]">{title}</div>
       )}
-      <pre className="overflow-auto text-xs text-[var(--ink)] font-mono leading-relaxed whitespace-pre-wrap">
+      <pre className="overflow-auto text-xs text-[var(--text-primary)] font-mono leading-relaxed whitespace-pre-wrap">
         {children}
       </pre>
     </div>
@@ -203,7 +203,7 @@ function Terminal({ title, children }: { title?: string; children: ReactNode }) 
 // Chip/Badge
 function Chip({ children, variant = 'default' }: { children: ReactNode; variant?: 'default' | 'accent' }) {
   const styles = {
-    default: 'border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--muted)]',
+    default: 'border-[var(--border-default)] bg-[rgba(255,255,255,0.04)] text-[var(--text-secondary)]',
     accent: 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]',
   };
   return (
@@ -215,7 +215,7 @@ function Chip({ children, variant = 'default' }: { children: ReactNode; variant?
 
 // Steps component for tutorials
 function Steps({ children }: { children: ReactNode }) {
-  return <div className="my-6 space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-[var(--line)]">{children}</div>;
+  return <div className="my-6 space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-[var(--border-default)]">{children}</div>;
 }
 
 function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
@@ -225,8 +225,8 @@ function Step({ number, title, children }: { number: number; title: string; chil
         {number}
       </div>
       <div className="flex-1 pt-0.5">
-        <div className="text-sm font-semibold text-[var(--ink)] mb-1">{title}</div>
-        <div className="text-[11px] text-[var(--muted)]">{children}</div>
+        <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">{title}</div>
+        <div className="text-[11px] text-[var(--text-secondary)]">{children}</div>
       </div>
     </div>
   );
@@ -235,16 +235,16 @@ function Step({ number, title, children }: { number: number; title: string; chil
 // Simplified visualization components for server rendering
 function ArchitectureDiagram({ children }: { children: ReactNode }) {
   return (
-    <div className="my-6 rounded-2xl border border-[var(--line)] bg-[var(--panel)]/55 p-6">
-      <div className="text-center text-[var(--muted)]">{children}</div>
+    <div className="my-6 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)]/55 p-6">
+      <div className="text-center text-[var(--text-secondary)]">{children}</div>
     </div>
   );
 }
 
 function FlowDiagram({ children }: { children: ReactNode }) {
   return (
-    <div className="my-6 rounded-2xl border border-[var(--line)] bg-[var(--panel)]/55 p-6">
-      <div className="text-center text-[var(--muted)]">{children}</div>
+    <div className="my-6 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)]/55 p-6">
+      <div className="text-center text-[var(--text-secondary)]">{children}</div>
     </div>
   );
 }
@@ -252,7 +252,7 @@ function FlowDiagram({ children }: { children: ReactNode }) {
 function ComparisonTable({ children }: { children: ReactNode }) {
   return (
     <div className="my-6 overflow-x-auto">
-      <table className="w-full text-sm text-[var(--muted)]">{children}</table>
+      <table className="w-full text-sm text-[var(--text-secondary)]">{children}</table>
     </div>
   );
 }
@@ -276,7 +276,7 @@ function Accordion({ children }: { children: ReactNode }) {
 function InteractiveCode({ children }: { children: ReactNode }) {
   return (
     <div className="my-6 rounded-xl terminal p-4">
-      <pre className="text-xs text-[var(--ink)] font-mono">{children}</pre>
+      <pre className="text-xs text-[var(--text-primary)] font-mono">{children}</pre>
     </div>
   );
 }

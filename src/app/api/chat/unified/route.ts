@@ -288,7 +288,7 @@ ${config.description ? `설명: ${config.description}` : ''}
   });
 
   // Build messages
-  const messages: (HumanMessage | AIMessage)[] = [];
+  const messages: InstanceType<typeof HumanMessage | typeof AIMessage>[] = [];
 
   for (const h of history) {
     if (h.role === 'user') {
@@ -335,9 +335,10 @@ ${config.description ? `설명: ${config.description}` : ''}
 
     if (!lastMsg) continue;
 
-    // Tool calls
-    if (lastMsg.tool_calls?.length > 0) {
-      for (const tc of lastMsg.tool_calls) {
+    // Tool calls (AIMessage has tool_calls property)
+    const msgWithTools = lastMsg as { tool_calls?: Array<{ name: string; id?: string }> };
+    if (msgWithTools.tool_calls?.length) {
+      for (const tc of msgWithTools.tool_calls) {
         toolCount++;
         send({
           type: 'tool_start',

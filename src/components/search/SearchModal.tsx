@@ -115,12 +115,12 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -20 }}
           transition={{ duration: 0.2 }}
-          className="w-full max-w-2xl mx-4 bg-[var(--panel)] rounded-2xl border border-[var(--line)] shadow-2xl overflow-hidden"
+          className="w-full max-w-2xl mx-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-default)] shadow-2xl overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
           {/* Search Input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--line)]">
-            <SearchIcon className="w-5 h-5 text-[var(--muted)]" />
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-default)]">
+            <SearchIcon className="w-5 h-5 text-[var(--text-secondary)]" />
             <input
               ref={inputRef}
               type="text"
@@ -128,9 +128,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="파일이나 내용 검색..."
-              className="flex-1 bg-transparent text-[var(--ink)] placeholder-[var(--muted)] text-base outline-none"
+              className="flex-1 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-secondary)] text-base outline-none"
             />
-            <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-[var(--muted)] bg-[var(--bg1)] rounded border border-[var(--line)]">
+            <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded border border-[var(--border-default)]">
               ESC
             </kbd>
           </div>
@@ -138,14 +138,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           {/* Results */}
           <div className="max-h-[60vh] overflow-y-auto">
             {loading && (
-              <div className="flex items-center justify-center py-8 text-[var(--muted)]">
+              <div className="flex items-center justify-center py-8 text-[var(--text-secondary)]">
                 <LoadingSpinner />
                 <span className="ml-2 text-sm">검색 중...</span>
               </div>
             )}
 
             {!loading && query && results.length === 0 && (
-              <div className="py-12 text-center text-[var(--muted)]">
+              <div className="py-12 text-center text-[var(--text-secondary)]">
                 <div className="text-3xl mb-2">🔍</div>
                 <div className="text-sm">검색 결과가 없습니다</div>
               </div>
@@ -161,36 +161,36 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
                         index === selectedIndex
                           ? 'bg-[var(--accent)]/10'
-                          : 'hover:bg-[var(--bg1)]'
+                          : 'hover:bg-[var(--bg-tertiary)]'
                       }`}
                     >
                       {result.type === 'directory' ? (
                         <FolderIcon className="w-5 h-5 mt-0.5 text-[var(--accent)] shrink-0" />
                       ) : (
-                        <FileIcon className="w-5 h-5 mt-0.5 text-[var(--muted)] shrink-0" />
+                        <FileIcon className="w-5 h-5 mt-0.5 text-[var(--text-secondary)] shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-[var(--ink)] truncate">
+                          <span className="text-sm font-medium text-[var(--text-primary)] truncate">
                             {result.name}
                           </span>
                           {result.matchType === 'content' && result.line && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg1)] text-[var(--muted)]">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">
                               L{result.line}
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-[var(--muted)] truncate mt-0.5">
+                        <div className="text-xs text-[var(--text-secondary)] truncate mt-0.5">
                           {result.path}
                         </div>
                         {result.excerpt && (
-                          <div className="text-xs text-[var(--muted)] mt-1 line-clamp-2 font-mono">
+                          <div className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2 font-mono">
                             {result.excerpt}
                           </div>
                         )}
                       </div>
                       {index === selectedIndex && (
-                        <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--muted)] bg-[var(--bg1)] rounded">
+                        <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
                           ↵
                         </kbd>
                       )}
@@ -201,14 +201,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             )}
 
             {!query && (
-              <div className="py-8 text-center text-[var(--muted)]">
+              <div className="py-8 text-center text-[var(--text-secondary)]">
                 <div className="text-sm mb-4">빠른 검색</div>
                 <div className="flex flex-wrap justify-center gap-2 px-4">
                   {['README', 'package.json', 'prisma', '.env'].map(term => (
                     <button
                       key={term}
                       onClick={() => setQuery(term)}
-                      className="px-3 py-1.5 text-xs rounded-full border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--muted)] transition-colors"
+                      className="px-3 py-1.5 text-xs rounded-full border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
                     >
                       {term}
                     </button>
@@ -219,14 +219,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--line)] text-[10px] text-[var(--muted)]">
+          <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--border-default)] text-[10px] text-[var(--text-secondary)]">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
-                <kbd className="px-1 py-0.5 bg-[var(--bg1)] rounded">↑↓</kbd>
+                <kbd className="px-1 py-0.5 bg-[var(--bg-tertiary)] rounded">↑↓</kbd>
                 이동
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="px-1 py-0.5 bg-[var(--bg1)] rounded">↵</kbd>
+                <kbd className="px-1 py-0.5 bg-[var(--bg-tertiary)] rounded">↵</kbd>
                 열기
               </span>
             </div>

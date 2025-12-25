@@ -37,10 +37,10 @@ export function ArchitectureDiagram({
 
   const nodeColors = {
     client: { bg: 'var(--accent)', border: 'var(--accent)' },
-    server: { bg: 'var(--panel)', border: 'var(--line)' },
-    database: { bg: 'var(--accent2)', border: 'var(--accent2)' },
-    external: { bg: 'var(--muted)', border: 'var(--muted)' },
-    default: { bg: 'var(--panel)', border: 'var(--line)' },
+    server: { bg: 'var(--bg-secondary)', border: 'var(--border-default)' },
+    database: { bg: 'var(--accent-hover)', border: 'var(--accent-hover)' },
+    external: { bg: 'var(--text-secondary)', border: 'var(--text-secondary)' },
+    default: { bg: 'var(--bg-secondary)', border: 'var(--border-default)' },
   };
 
   const getNodePos = (id: string) => {
@@ -49,7 +49,7 @@ export function ArchitectureDiagram({
   };
 
   return (
-    <div className="my-8 rounded-2xl border border-[var(--line)] bg-[var(--bg1)]/50 p-4 overflow-hidden">
+    <div className="my-8 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-tertiary)]/50 p-4 overflow-hidden">
       <svg ref={svgRef} width="100%" height={height} className="font-mono">
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -77,7 +77,7 @@ export function ArchitectureDiagram({
                 y1={`${from.y}%`}
                 x2={`${to.x}%`}
                 y2={`${to.y}%`}
-                stroke={isHighlighted ? 'var(--accent)' : 'var(--line)'}
+                stroke={isHighlighted ? 'var(--accent)' : 'var(--border-default)'}
                 strokeWidth={isHighlighted ? 2 : 1}
                 markerEnd="url(#arrowhead)"
                 initial={{ pathLength: 0 }}
@@ -88,7 +88,7 @@ export function ArchitectureDiagram({
                 <text
                   x={`${(from.x + to.x) / 2}%`}
                   y={`${(from.y + to.y) / 2 - 2}%`}
-                  fill="var(--muted)"
+                  fill="var(--text-secondary)"
                   fontSize="10"
                   textAnchor="middle"
                 >
@@ -138,7 +138,7 @@ export function ArchitectureDiagram({
               <text
                 x={`${node.x}%`}
                 y={`${node.y + 1}%`}
-                fill="var(--ink)"
+                fill="var(--text-primary)"
                 fontSize="11"
                 textAnchor="middle"
                 fontWeight="500"
@@ -167,9 +167,9 @@ export function FlowDiagram({ steps }: { steps: { title: string; description: st
   }, [steps.length]);
 
   return (
-    <div className="my-8 rounded-2xl border border-[var(--line)] bg-[var(--panel)]/50 p-6">
+    <div className="my-8 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)]/50 p-6">
       {/* Progress bar */}
-      <div className="relative h-1 bg-[var(--line)] rounded-full mb-6 overflow-hidden">
+      <div className="relative h-1 bg-[var(--border-default)] rounded-full mb-6 overflow-hidden">
         <motion.div
           className="absolute h-full bg-[var(--accent)]"
           initial={{ width: 0 }}
@@ -186,7 +186,7 @@ export function FlowDiagram({ steps }: { steps: { title: string; description: st
             className={`flex-shrink-0 w-48 p-4 rounded-xl border cursor-pointer transition-all ${
               i === activeStep
                 ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-                : 'border-[var(--line)] bg-[var(--bg1)]/50'
+                : 'border-[var(--border-default)] bg-[var(--bg-tertiary)]/50'
             }`}
             onClick={() => setActiveStep(i)}
             whileHover={{ scale: 1.02 }}
@@ -194,14 +194,14 @@ export function FlowDiagram({ steps }: { steps: { title: string; description: st
           >
             <div className="flex items-center gap-2 mb-2">
               <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                i === activeStep ? 'bg-[var(--accent)] text-[var(--bg0)]' : 'bg-[var(--line)] text-[var(--muted)]'
+                i === activeStep ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'bg-[var(--border-default)] text-[var(--text-secondary)]'
               }`}>
                 {i + 1}
               </span>
               {step.icon && <Icon name={step.icon} className="h-4 w-4 text-[var(--accent)]" />}
             </div>
-            <div className="text-sm font-semibold text-[var(--ink)]">{step.title}</div>
-            <div className="text-[10px] text-[var(--muted)] mt-1">{step.description}</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">{step.title}</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mt-1">{step.description}</div>
           </motion.div>
         ))}
       </div>
@@ -219,7 +219,7 @@ export function FlowDiagram({ steps }: { steps: { title: string; description: st
             <span className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
             <span className="text-xs text-[var(--accent)]">현재 단계</span>
           </div>
-          <div className="mt-2 text-sm text-[var(--ink)]">{steps[activeStep].title}</div>
+          <div className="mt-2 text-sm text-[var(--text-primary)]">{steps[activeStep].title}</div>
         </motion.div>
       </AnimatePresence>
     </div>
@@ -237,13 +237,13 @@ export function ComparisonTable({
   rows: { label: string; values: (string | boolean)[] }[];
 }) {
   return (
-    <div className="my-8 rounded-2xl border border-[var(--line)] overflow-hidden">
+    <div className="my-8 rounded-2xl border border-[var(--border-default)] overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="bg-[var(--panel)]">
-            <th className="p-4 text-left text-xs font-semibold text-[var(--ink)]" />
+          <tr className="bg-[var(--bg-secondary)]">
+            <th className="p-4 text-left text-xs font-semibold text-[var(--text-primary)]" />
             {headers.map((h, i) => (
-              <th key={i} className="p-4 text-center text-xs font-semibold text-[var(--ink)]">
+              <th key={i} className="p-4 text-center text-xs font-semibold text-[var(--text-primary)]">
                 {h}
               </th>
             ))}
@@ -257,9 +257,9 @@ export function ComparisonTable({
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
-              className="border-t border-[var(--line)]"
+              className="border-t border-[var(--border-default)]"
             >
-              <td className="p-4 text-sm font-medium text-[var(--ink)]">{row.label}</td>
+              <td className="p-4 text-sm font-medium text-[var(--text-primary)]">{row.label}</td>
               {row.values.map((v, j) => (
                 <td key={j} className="p-4 text-center">
                   {typeof v === 'boolean' ? (
@@ -268,12 +268,12 @@ export function ComparisonTable({
                         ✓
                       </span>
                     ) : (
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--line)] text-[var(--muted)]">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--border-default)] text-[var(--text-secondary)]">
                         ✗
                       </span>
                     )
                   ) : (
-                    <span className="text-sm text-[var(--muted)]">{v}</span>
+                    <span className="text-sm text-[var(--text-secondary)]">{v}</span>
                   )}
                 </td>
               ))}
@@ -298,12 +298,12 @@ export function StatsGrid({ stats }: { stats: { label: string; value: string; ch
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: i * 0.1 }}
-          className="rounded-xl border border-[var(--line)] bg-[var(--panel)]/50 p-4"
+          className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)]/50 p-4"
         >
-          <div className="text-2xl font-display text-[var(--ink)]">{stat.value}</div>
-          <div className="text-[11px] text-[var(--muted)] mt-1">{stat.label}</div>
+          <div className="text-2xl font-display text-[var(--text-primary)]">{stat.value}</div>
+          <div className="text-[11px] text-[var(--text-secondary)] mt-1">{stat.label}</div>
           {stat.change && (
-            <div className={`text-[10px] mt-2 ${stat.change.startsWith('+') ? 'text-green-500' : 'text-[var(--accent2)]'}`}>
+            <div className={`text-[10px] mt-2 ${stat.change.startsWith('+') ? 'text-green-500' : 'text-[var(--accent-hover)]'}`}>
               {stat.change}
             </div>
           )}
@@ -319,7 +319,7 @@ export function StatsGrid({ stats }: { stats: { label: string; value: string; ch
 export function Timeline({ events }: { events: { date: string; title: string; description: string }[] }) {
   return (
     <div className="my-8 relative">
-      <div className="absolute left-4 top-0 bottom-0 w-px bg-[var(--line)]" />
+      <div className="absolute left-4 top-0 bottom-0 w-px bg-[var(--border-default)]" />
       <div className="space-y-6">
         {events.map((event, i) => (
           <motion.div
@@ -330,10 +330,10 @@ export function Timeline({ events }: { events: { date: string; title: string; de
             transition={{ delay: i * 0.1 }}
             className="relative pl-10"
           >
-            <div className="absolute left-2 w-5 h-5 rounded-full border-2 border-[var(--accent)] bg-[var(--bg0)]" />
+            <div className="absolute left-2 w-5 h-5 rounded-full border-2 border-[var(--accent)] bg-[var(--bg-primary)]" />
             <div className="text-[10px] text-[var(--accent)] tracking-wider uppercase">{event.date}</div>
-            <div className="text-sm font-semibold text-[var(--ink)] mt-1">{event.title}</div>
-            <div className="text-[11px] text-[var(--muted)] mt-1">{event.description}</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)] mt-1">{event.title}</div>
+            <div className="text-[11px] text-[var(--text-secondary)] mt-1">{event.description}</div>
           </motion.div>
         ))}
       </div>
@@ -349,15 +349,15 @@ export function Tabs({ tabs }: { tabs: { label: string; content: ReactNode }[] }
 
   return (
     <div className="my-8">
-      <div className="flex gap-1 p-1 rounded-xl bg-[var(--panel)]/50 border border-[var(--line)]">
+      <div className="flex gap-1 p-1 rounded-xl bg-[var(--bg-secondary)]/50 border border-[var(--border-default)]">
         {tabs.map((tab, i) => (
           <button
             key={i}
             onClick={() => setActive(i)}
             className={`flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
               i === active
-                ? 'bg-[var(--accent)] text-[var(--bg0)]'
-                : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                ? 'bg-[var(--accent)] text-[var(--bg-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             {tab.label}
@@ -388,15 +388,15 @@ export function Accordion({ items }: { items: { title: string; content: ReactNod
   return (
     <div className="my-8 space-y-2">
       {items.map((item, i) => (
-        <div key={i} className="rounded-xl border border-[var(--line)] overflow-hidden">
+        <div key={i} className="rounded-xl border border-[var(--border-default)] overflow-hidden">
           <button
             onClick={() => setOpenIndex(openIndex === i ? null : i)}
-            className="w-full flex items-center justify-between p-4 text-left bg-[var(--panel)]/50 hover:bg-[var(--panel)] transition-colors"
+            className="w-full flex items-center justify-between p-4 text-left bg-[var(--bg-secondary)]/50 hover:bg-[var(--bg-secondary)] transition-colors"
           >
-            <span className="text-sm font-medium text-[var(--ink)]">{item.title}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{item.title}</span>
             <motion.span
               animate={{ rotate: openIndex === i ? 180 : 0 }}
-              className="text-[var(--muted)]"
+              className="text-[var(--text-secondary)]"
             >
               ▼
             </motion.span>
@@ -409,7 +409,7 @@ export function Accordion({ items }: { items: { title: string; content: ReactNod
                 exit={{ height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="p-4 text-[11px] text-[var(--muted)] bg-[var(--bg1)]/50">
+                <div className="p-4 text-[11px] text-[var(--text-secondary)] bg-[var(--bg-tertiary)]/50">
                   {item.content}
                 </div>
               </motion.div>
@@ -432,17 +432,17 @@ export function InteractiveCode({
   const [activeFile, setActiveFile] = useState(0);
 
   return (
-    <div className="my-8 rounded-2xl border border-[var(--line)] overflow-hidden">
+    <div className="my-8 rounded-2xl border border-[var(--border-default)] overflow-hidden">
       {/* Tab bar */}
-      <div className="flex bg-[var(--panel)]/80 border-b border-[var(--line)]">
+      <div className="flex bg-[var(--bg-secondary)]/80 border-b border-[var(--border-default)]">
         {files.map((file, i) => (
           <button
             key={i}
             onClick={() => setActiveFile(i)}
             className={`px-4 py-2 text-xs font-mono transition-all ${
               i === activeFile
-                ? 'bg-[var(--bg1)] text-[var(--ink)] border-b-2 border-[var(--accent)]'
-                : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border-b-2 border-[var(--accent)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             {file.name}
@@ -452,11 +452,11 @@ export function InteractiveCode({
 
       {/* Code content */}
       <div className="relative">
-        <div className="absolute top-2 right-2 text-[10px] text-[var(--muted)] tracking-wider uppercase">
+        <div className="absolute top-2 right-2 text-[10px] text-[var(--text-secondary)] tracking-wider uppercase">
           {files[activeFile].language}
         </div>
-        <pre className="p-4 overflow-x-auto bg-[var(--bg1)]">
-          <code className="text-xs font-mono text-[var(--ink)] leading-relaxed">
+        <pre className="p-4 overflow-x-auto bg-[var(--bg-tertiary)]">
+          <code className="text-xs font-mono text-[var(--text-primary)] leading-relaxed">
             {files[activeFile].code}
           </code>
         </pre>

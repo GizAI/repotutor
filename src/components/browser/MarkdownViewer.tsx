@@ -193,7 +193,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       const text = String(children);
       const id = text.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '');
       return (
-        <h1 id={id} className="group text-2xl lg:text-3xl font-display font-bold text-[var(--ink)] mt-8 mb-4 pb-2 border-b border-[var(--line)]">
+        <h1 id={id} className="group text-2xl lg:text-3xl font-display font-bold text-[var(--text-primary)] mt-8 mb-4 pb-2 border-b border-[var(--border-default)]">
           <a href={`#${id}`} className="no-underline hover:text-[var(--accent)]">{children}</a>
         </h1>
       );
@@ -202,7 +202,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       const text = String(children);
       const id = text.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '');
       return (
-        <h2 id={id} className="group text-xl lg:text-2xl font-display font-semibold text-[var(--ink)] mt-8 mb-3 pb-2 border-b border-[var(--line)]">
+        <h2 id={id} className="group text-xl lg:text-2xl font-display font-semibold text-[var(--text-primary)] mt-8 mb-3 pb-2 border-b border-[var(--border-default)]">
           <a href={`#${id}`} className="no-underline hover:text-[var(--accent)]">{children}</a>
         </h2>
       );
@@ -211,7 +211,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       const text = String(children);
       const id = text.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '');
       return (
-        <h3 id={id} className="group text-lg lg:text-xl font-display font-semibold text-[var(--ink)] mt-6 mb-2">
+        <h3 id={id} className="group text-lg lg:text-xl font-display font-semibold text-[var(--text-primary)] mt-6 mb-2">
           <a href={`#${id}`} className="no-underline hover:text-[var(--accent)]">{children}</a>
         </h3>
       );
@@ -220,7 +220,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       const text = String(children);
       const id = text.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '');
       return (
-        <h4 id={id} className="text-base lg:text-lg font-display font-medium text-[var(--ink)] mt-4 mb-2">
+        <h4 id={id} className="text-base lg:text-lg font-display font-medium text-[var(--text-primary)] mt-4 mb-2">
           <a href={`#${id}`} className="no-underline hover:text-[var(--accent)]">{children}</a>
         </h4>
       );
@@ -228,7 +228,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
     // Paragraphs
     p: ({ children }) => (
-      <p className="text-sm lg:text-base text-[var(--ink)] leading-relaxed mb-4">
+      <p className="text-sm lg:text-base text-[var(--text-primary)] leading-relaxed mb-4">
         {children}
       </p>
     ),
@@ -239,7 +239,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
         href={href}
         target={href?.startsWith('http') ? '_blank' : undefined}
         rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
-        className="text-[var(--accent)] hover:text-[var(--accent2)] underline underline-offset-2 transition-colors"
+        className="text-[var(--accent)] hover:text-[var(--accent-hover)] underline underline-offset-2 transition-colors"
       >
         {children}
       </a>
@@ -247,12 +247,12 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
     // Lists
     ul: ({ children }) => (
-      <ul className="list-disc list-inside space-y-1 mb-4 text-sm lg:text-base text-[var(--ink)] ml-4">
+      <ul className="list-disc list-inside space-y-1 mb-4 text-sm lg:text-base text-[var(--text-primary)] ml-4">
         {children}
       </ul>
     ),
     ol: ({ children }) => (
-      <ol className="list-decimal list-inside space-y-1 mb-4 text-sm lg:text-base text-[var(--ink)] ml-4">
+      <ol className="list-decimal list-inside space-y-1 mb-4 text-sm lg:text-base text-[var(--text-primary)] ml-4">
         {children}
       </ol>
     ),
@@ -262,7 +262,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
     // Blockquotes
     blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-[var(--accent)] pl-4 py-2 my-4 bg-[var(--panel-soft)] rounded-r-lg italic text-[var(--muted)]">
+      <blockquote className="border-l-4 border-[var(--accent)] pl-4 py-2 my-4 bg-[var(--panel-soft)] rounded-r-lg italic text-[var(--text-secondary)]">
         {children}
       </blockquote>
     ),
@@ -282,7 +282,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       if (language === 'mermaid') {
         return (
           <div
-            className="mermaid-block my-4 lg:my-6 p-3 lg:p-4 bg-[var(--bg1)] rounded-lg lg:rounded-xl border border-[var(--line)] overflow-x-auto"
+            className="mermaid-block my-4 lg:my-6 p-3 lg:p-4 bg-[var(--bg-tertiary)] rounded-lg lg:rounded-xl border border-[var(--border-default)] overflow-x-auto"
             data-code={codeString}
           />
         );
@@ -291,7 +291,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       // Inline code (single line, no language class, not multiline)
       if (isInlineCode && !className) {
         return (
-          <code className="px-1 lg:px-1.5 py-0.5 rounded bg-[var(--panel)] text-[var(--accent)] text-[0.85em] lg:text-[0.9em] font-mono break-all">
+          <code className="px-1 lg:px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--accent)] text-[0.85em] lg:text-[0.9em] font-mono break-all">
             {children}
           </code>
         );
@@ -301,12 +301,12 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       return (
         <div className="relative group my-3 lg:my-4 -mx-4 sm:mx-0">
           {language && (
-            <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[9px] lg:text-[10px] bg-[var(--panel)] text-[var(--muted)] opacity-70 z-10">
+            <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[9px] lg:text-[10px] bg-[var(--bg-secondary)] text-[var(--text-secondary)] opacity-70 z-10">
               {language}
             </div>
           )}
-          <pre className="p-3 lg:p-4 bg-[var(--bg1)] sm:rounded-lg lg:rounded-xl border-y sm:border border-[var(--line)] overflow-x-auto scrollbar-thin">
-            <code className="text-[10px] sm:text-[11px] lg:text-sm font-mono text-[var(--ink)] leading-snug whitespace-pre block">
+          <pre className="p-3 lg:p-4 bg-[var(--bg-tertiary)] sm:rounded-lg lg:rounded-xl border-y sm:border border-[var(--border-default)] overflow-x-auto scrollbar-thin">
+            <code className="text-[10px] sm:text-[11px] lg:text-sm font-mono text-[var(--text-primary)] leading-snug whitespace-pre block">
               {children}
             </code>
           </pre>
@@ -320,7 +320,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
     // Tables
     table: ({ children }) => (
       <div className="my-4 lg:my-6 -mx-4 sm:mx-0 overflow-x-auto scrollbar-thin">
-        <div className="inline-block min-w-full sm:rounded-lg lg:rounded-xl border-y sm:border border-[var(--line)]">
+        <div className="inline-block min-w-full sm:rounded-lg lg:rounded-xl border-y sm:border border-[var(--border-default)]">
           <table className="min-w-full text-xs lg:text-sm">
             {children}
           </table>
@@ -328,28 +328,28 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       </div>
     ),
     thead: ({ children }) => (
-      <thead className="bg-[var(--panel)] border-b border-[var(--line)]">
+      <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-default)]">
         {children}
       </thead>
     ),
     tbody: ({ children }) => (
-      <tbody className="divide-y divide-[var(--line)]">{children}</tbody>
+      <tbody className="divide-y divide-[var(--border-default)]">{children}</tbody>
     ),
     tr: ({ children }) => (
-      <tr className="hover:bg-[var(--bg1)] transition-colors">{children}</tr>
+      <tr className="hover:bg-[var(--bg-tertiary)] transition-colors">{children}</tr>
     ),
     th: ({ children }) => (
-      <th className="px-3 lg:px-4 py-2 lg:py-3 text-left font-semibold text-[var(--ink)] whitespace-nowrap">
+      <th className="px-3 lg:px-4 py-2 lg:py-3 text-left font-semibold text-[var(--text-primary)] whitespace-nowrap">
         {children}
       </th>
     ),
     td: ({ children }) => (
-      <td className="px-3 lg:px-4 py-2 lg:py-3 text-[var(--ink)]">{children}</td>
+      <td className="px-3 lg:px-4 py-2 lg:py-3 text-[var(--text-primary)]">{children}</td>
     ),
 
     // Horizontal rule
     hr: () => (
-      <hr className="my-8 border-t border-[var(--line)]" />
+      <hr className="my-8 border-t border-[var(--border-default)]" />
     ),
 
     // Images
@@ -358,11 +358,11 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
         <img
           src={src}
           alt={alt || ''}
-          className="rounded-xl border border-[var(--line)] max-w-full h-auto"
+          className="rounded-xl border border-[var(--border-default)] max-w-full h-auto"
           loading="lazy"
         />
         {alt && (
-          <figcaption className="mt-2 text-center text-xs text-[var(--muted)]">
+          <figcaption className="mt-2 text-center text-xs text-[var(--text-secondary)]">
             {alt}
           </figcaption>
         )}
@@ -371,7 +371,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
     // Strong and emphasis
     strong: ({ children }) => (
-      <strong className="font-semibold text-[var(--ink)]">{children}</strong>
+      <strong className="font-semibold text-[var(--text-primary)]">{children}</strong>
     ),
     em: ({ children }) => (
       <em className="italic">{children}</em>
@@ -379,7 +379,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
     // Strikethrough
     del: ({ children }) => (
-      <del className="line-through text-[var(--muted)]">{children}</del>
+      <del className="line-through text-[var(--text-secondary)]">{children}</del>
     ),
 
     // Custom div handling for our preprocessed components
@@ -391,7 +391,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
                        type === 'warning' ? 'bg-yellow-500/10 border-yellow-500/30' :
                        type === 'tip' ? 'bg-green-500/10 border-green-500/30' :
                        type === 'error' ? 'bg-red-500/10 border-red-500/30' :
-                       'bg-[var(--panel-soft)] border-[var(--line)]';
+                       'bg-[var(--panel-soft)] border-[var(--border-default)]';
         return (
           <div className={`my-4 p-4 rounded-lg border ${bgColor} flex gap-3`}>
             {children}
@@ -406,7 +406,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
       // Callout content
       if (className === 'callout-content') {
-        return <div className="text-sm text-[var(--ink)] flex-1 min-w-0 [&>p:last-child]:mb-0">{children}</div>;
+        return <div className="text-sm text-[var(--text-primary)] flex-1 min-w-0 [&>p:last-child]:mb-0">{children}</div>;
       }
 
       // Steps container
@@ -417,7 +417,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       // Individual step
       if (className === 'step') {
         return (
-          <div className="flex gap-4 p-4 rounded-lg bg-[var(--panel-soft)] border border-[var(--line)]">
+          <div className="flex gap-4 p-4 rounded-lg bg-[var(--panel-soft)] border border-[var(--border-default)]">
             {children}
           </div>
         );
@@ -426,7 +426,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       // Step number
       if (className === 'step-number') {
         return (
-          <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-[var(--bg0)] flex items-center justify-center font-bold text-sm shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-[var(--bg-primary)] flex items-center justify-center font-bold text-sm shrink-0">
             {children}
           </div>
         );
@@ -439,7 +439,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
       // Step title
       if (className === 'step-title') {
-        return <div className="font-semibold text-[var(--ink)] mb-2">{children}</div>;
+        return <div className="font-semibold text-[var(--text-primary)] mb-2">{children}</div>;
       }
 
       // Grid
@@ -455,7 +455,7 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
       // Feature card
       if (className === 'feature') {
         return (
-          <div className="p-4 rounded-lg bg-[var(--panel-soft)] border border-[var(--line)] hover:border-[var(--accent)]/50 transition-colors">
+          <div className="p-4 rounded-lg bg-[var(--panel-soft)] border border-[var(--border-default)] hover:border-[var(--accent)]/50 transition-colors">
             {children}
           </div>
         );
@@ -468,12 +468,12 @@ export function MarkdownViewer({ content, className = '', onHeadingsExtracted }:
 
       // Feature title
       if (className === 'feature-title') {
-        return <div className="font-semibold text-[var(--ink)] mb-1">{children}</div>;
+        return <div className="font-semibold text-[var(--text-primary)] mb-1">{children}</div>;
       }
 
       // Feature description
       if (className === 'feature-desc') {
-        return <div className="text-xs text-[var(--muted)]">{children}</div>;
+        return <div className="text-xs text-[var(--text-secondary)]">{children}</div>;
       }
 
       return <div className={className} {...props}>{children}</div>;

@@ -104,7 +104,7 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
     return (
       <AnimatedCard>
         <div className="flex items-center justify-center py-12 lg:py-20">
-          <div className="flex items-center gap-3 text-[var(--muted)]">
+          <div className="flex items-center gap-3 text-[var(--text-secondary)]">
             <LoadingSpinner />
             <span className="text-sm">Loading file...</span>
           </div>
@@ -118,7 +118,7 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
       <AnimatedCard>
         <div className="flex flex-col items-center justify-center py-12 lg:py-20 text-center">
           <div className="text-3xl mb-3">⚠️</div>
-          <div className="text-sm text-[var(--muted)]">{error}</div>
+          <div className="text-sm text-[var(--text-secondary)]">{error}</div>
         </div>
       </AnimatedCard>
     );
@@ -133,12 +133,12 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
         <FileHeader name={data.name} type="image" />
         <AnimatedCard>
           <div className="flex flex-col items-center">
-            <div className="relative max-w-full overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--bg1)] p-2">
+            <div className="relative max-w-full overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-tertiary)] p-2">
               {/* Checkered background for transparency */}
               <div
                 className="absolute inset-2 rounded"
                 style={{
-                  backgroundImage: 'linear-gradient(45deg, var(--line) 25%, transparent 25%), linear-gradient(-45deg, var(--line) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--line) 75%), linear-gradient(-45deg, transparent 75%, var(--line) 75%)',
+                  backgroundImage: 'linear-gradient(45deg, var(--border-default) 25%, transparent 25%), linear-gradient(-45deg, var(--border-default) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--border-default) 75%), linear-gradient(-45deg, transparent 75%, var(--border-default) 75%)',
                   backgroundSize: '16px 16px',
                   backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
                 }}
@@ -153,7 +153,7 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
             <a
               href={`/api/file/${path}?raw=true`}
               download={data.name}
-              className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--muted)] transition-colors"
+              className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
             >
               Download Image
             </a>
@@ -174,14 +174,14 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
             <div className="hidden sm:block w-full">
               <iframe
                 src={`/api/file/${path}?raw=true`}
-                className="w-full h-[70vh] rounded-lg border border-[var(--line)]"
+                className="w-full h-[70vh] rounded-lg border border-[var(--border-default)]"
                 title={data.name}
               />
             </div>
             {/* Mobile: download link */}
             <div className="sm:hidden flex flex-col items-center py-8">
               <div className="text-5xl mb-4">📄</div>
-              <p className="text-sm text-[var(--muted)] mb-4 text-center">
+              <p className="text-sm text-[var(--text-secondary)] mb-4 text-center">
                 PDF preview is not available on mobile.<br />
                 Please download to view.
               </p>
@@ -191,7 +191,7 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
               download={data.name}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--muted)] transition-colors"
+              className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
             >
               Download PDF
             </a>
@@ -211,16 +211,16 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
         <AnimatedCard>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <div className="text-sm font-semibold text-[var(--ink)] truncate">{data.name}</div>
-              <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--muted)]">
-                <span className="px-1.5 py-0.5 rounded bg-[var(--bg1)]">{data.language}</span>
+              <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{data.name}</div>
+              <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--text-secondary)]">
+                <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]">{data.language}</span>
                 <span className="hidden sm:inline">{data.lines} lines</span>
                 <span>{formatSize(data.size)}</span>
               </div>
             </div>
             <button
               onClick={handleCopy}
-              className="self-start sm:self-auto text-[10px] px-2 py-1 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--muted)] transition-colors"
+              className="self-start sm:self-auto text-[10px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
             >
               {copied ? 'Copied!' : 'Copy Raw'}
             </button>
@@ -276,16 +276,16 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
       <AnimatedCard>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="text-sm font-semibold text-[var(--ink)]">{data.name}</div>
-            <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--muted)]">
-              <span className="px-1.5 py-0.5 rounded bg-[var(--bg1)]">{data.language}</span>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">{data.name}</div>
+            <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--text-secondary)]">
+              <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]">{data.language}</span>
               <span className="hidden sm:inline">{data.lines} lines</span>
               <span>{formatSize(data.size)}</span>
             </div>
           </div>
           <button
             onClick={handleCopy}
-            className="self-start sm:self-auto text-[10px] px-2 py-1 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--muted)] transition-colors"
+            className="self-start sm:self-auto text-[10px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
           >
             {copied ? 'Copied!' : 'Copy'}
           </button>
@@ -293,8 +293,8 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
       </AnimatedCard>
 
       <div
-        className="rounded-lg lg:rounded-xl border border-[var(--line)] overflow-hidden"
-        style={{ backgroundColor: 'var(--bg1)' }}
+        className="rounded-lg lg:rounded-xl border border-[var(--border-default)] overflow-hidden"
+        style={{ backgroundColor: 'var(--bg-tertiary)' }}
       >
         {data.highlightedHtml ? (
           <div
@@ -302,7 +302,7 @@ export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerPr
             dangerouslySetInnerHTML={{ __html: data.highlightedHtml }}
           />
         ) : (
-          <pre className="p-3 lg:p-4 text-[11px] lg:text-sm font-mono overflow-x-auto text-[var(--ink)]">
+          <pre className="p-3 lg:p-4 text-[11px] lg:text-sm font-mono overflow-x-auto text-[var(--text-primary)]">
             <code>{data.content}</code>
           </pre>
         )}
@@ -320,8 +320,8 @@ function FileHeader({ name, type }: { name: string; type: 'image' | 'pdf' }) {
       <div className="flex items-center gap-3">
         <span className="text-2xl">{icon}</span>
         <div>
-          <div className="text-sm font-semibold text-[var(--ink)]">{name}</div>
-          <div className="text-[10px] text-[var(--muted)]">{label}</div>
+          <div className="text-sm font-semibold text-[var(--text-primary)]">{name}</div>
+          <div className="text-[10px] text-[var(--text-secondary)]">{label}</div>
         </div>
       </div>
     </AnimatedCard>

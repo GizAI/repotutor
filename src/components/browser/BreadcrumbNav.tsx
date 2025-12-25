@@ -30,15 +30,15 @@ export function BreadcrumbNav({ path, repoName = 'Repository' }: BreadcrumbNavPr
             key={segmentPath}
             className="flex items-center gap-1 shrink-0"
           >
-            <span className="text-[var(--muted)]">/</span>
+            <span className="text-[var(--text-secondary)]">/</span>
             {isLast ? (
-              <span className="px-1.5 lg:px-2 py-1 text-[var(--ink)] whitespace-nowrap">
+              <span className="px-1.5 lg:px-2 py-1 text-[var(--text-primary)] whitespace-nowrap">
                 {segment}
               </span>
             ) : (
               <Link
                 href={`/browse/${segmentPath}`}
-                className="px-1.5 lg:px-2 py-1 rounded-md text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--bg1)] transition-colors whitespace-nowrap"
+                className="px-1.5 lg:px-2 py-1 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors whitespace-nowrap"
               >
                 {segment}
               </Link>

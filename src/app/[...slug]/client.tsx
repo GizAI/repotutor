@@ -21,18 +21,18 @@ export function DocPageClient({ doc, adjacent, docs, children }: DocPageClientPr
     <DocsLayout docs={docs}>
       <article className="space-y-8">
         {/* Hero */}
-        <Card glow className="p-6 sm:p-8">
+        <Card className="p-6 sm:p-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
             {doc.category && <Chip variant="accent">{doc.category}</Chip>}
-            <h1 className="mt-4 font-display text-3xl sm:text-4xl text-[var(--ink)]">
+            <h1 className="mt-4 font-display text-3xl sm:text-4xl text-[var(--text-primary)]">
               {doc.title}
             </h1>
             {doc.description && (
-              <p className="mt-3 text-sm text-[var(--muted)] font-body max-w-2xl">
+              <p className="mt-3 text-sm text-[var(--text-secondary)] font-body max-w-2xl">
                 {doc.description}
               </p>
             )}
@@ -52,14 +52,14 @@ export function DocPageClient({ doc, adjacent, docs, children }: DocPageClientPr
         </motion.div>
 
         {/* Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-8 border-t border-[var(--line)]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-8 border-t border-[var(--border-default)]">
           {adjacent.prev ? (
             <Link
               href={`/${adjacent.prev.slug}`}
-              className="group rounded-xl border border-[var(--line)] bg-[var(--panel)]/50 p-4 hover:border-[var(--accent)]/30 transition-colors"
+              className="group rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)]/50 p-4 hover:border-[var(--accent)]/30 transition-colors"
             >
-              <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider mb-1">← 이전</div>
-              <div className="text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--accent)] transition-colors">
+              <div className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-1">← 이전</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
                 {adjacent.prev.title}
               </div>
             </Link>
@@ -69,10 +69,10 @@ export function DocPageClient({ doc, adjacent, docs, children }: DocPageClientPr
           {adjacent.next && (
             <Link
               href={`/${adjacent.next.slug}`}
-              className="group rounded-xl border border-[var(--line)] bg-[var(--panel)]/50 p-4 hover:border-[var(--accent)]/30 transition-colors text-right"
+              className="group rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)]/50 p-4 hover:border-[var(--accent)]/30 transition-colors text-right"
             >
-              <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider mb-1">다음 →</div>
-              <div className="text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--accent)] transition-colors">
+              <div className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-1">다음 →</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
                 {adjacent.next.title}
               </div>
             </Link>
