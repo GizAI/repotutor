@@ -3,18 +3,29 @@ import clsx from 'clsx';
 interface ChipProps {
   children: React.ReactNode;
   className?: string;
-  variant?: 'default' | 'accent' | 'muted';
+  variant?: 'default' | 'accent' | 'success' | 'warning' | 'error';
+  size?: 'sm' | 'md';
 }
 
-export function Chip({ children, className = '', variant = 'default' }: ChipProps) {
+export function Chip({
+  children,
+  className = '',
+  variant = 'default',
+  size = 'sm'
+}: ChipProps) {
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-full border px-3 py-1.5',
-        'text-[10px] tracking-[0.24em] uppercase',
-        variant === 'default' && 'border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--muted)]',
-        variant === 'accent' && 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]',
-        variant === 'muted' && 'border-[var(--line)] bg-[var(--bg1)] text-[var(--muted)]',
+        'inline-flex items-center rounded-full font-medium',
+        // Size
+        size === 'sm' && 'px-2 py-0.5 text-[11px]',
+        size === 'md' && 'px-3 py-1 text-xs',
+        // Variants
+        variant === 'default' && 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]',
+        variant === 'accent' && 'bg-[var(--accent-soft)] text-[var(--accent)]',
+        variant === 'success' && 'bg-emerald-500/10 text-emerald-500',
+        variant === 'warning' && 'bg-amber-500/10 text-amber-500',
+        variant === 'error' && 'bg-red-500/10 text-red-500',
         className
       )}
     >

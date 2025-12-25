@@ -1,4 +1,4 @@
-export type IconName = 'spark' | 'wires' | 'shield' | 'bolt' | 'layers' | 'code' | 'book' | 'menu' | 'close' | 'sun' | 'moon' | 'arrow' | 'search';
+export type IconName = 'spark' | 'wires' | 'shield' | 'bolt' | 'layers' | 'code' | 'book' | 'menu' | 'close' | 'sun' | 'moon' | 'monitor' | 'arrow' | 'search' | 'folder' | 'sound' | 'chevron-down';
 
 interface IconProps {
   name: IconName;
@@ -92,6 +92,20 @@ export function Icon({ name, className = '' }: IconProps) {
           <path className={common} d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
         </svg>
       );
+    case 'monitor':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <rect className={common} x="2" y="3" width="20" height="14" rx="2" ry="2" />
+          <path className={common} d="M8 21h8" />
+          <path className={common} d="M12 17v4" />
+        </svg>
+      );
+    case 'chevron-down':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M6 9l6 6 6-6" />
+        </svg>
+      );
     case 'arrow':
       return (
         <svg className={className} viewBox="0 0 24 24">
@@ -104,6 +118,20 @@ export function Icon({ name, className = '' }: IconProps) {
         <svg className={className} viewBox="0 0 24 24">
           <circle className={common} cx="11" cy="11" r="8" />
           <path className={common} d="M21 21l-4.35-4.35" />
+        </svg>
+      );
+    case 'folder':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+        </svg>
+      );
+    case 'sound':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M11 5L6 9H2v6h4l5 4V5z" />
+          <path className={common} d="M15.54 8.46a5 5 0 010 7.07" />
+          <path className={common} d="M19.07 4.93a10 10 0 010 14.14" />
         </svg>
       );
     default:

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon, type IconName } from '../ui/Icon';
-import { Card } from '../ui/Card';
 import type { DocMeta } from '@/lib/mdx';
 
 interface SidebarProps {
@@ -38,94 +37,79 @@ export function Sidebar({ isOpen = true, onClose, docs = [] }: SidebarProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/60 md:hidden"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
             onClick={onClose}
           />
 
           {/* Sidebar */}
           <motion.aside
-            initial={{ x: -300, opacity: 0 }}
+            initial={{ x: -280, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-0 z-50 h-full w-80 overflow-y-auto bg-[var(--bg0)] p-4 md:sticky md:top-20 md:z-0 md:h-[calc(100vh-96px)] md:w-auto md:bg-transparent"
+            exit={{ x: -280, opacity: 0 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed left-0 top-0 z-50 h-full w-72 overflow-y-auto bg-[var(--bg-primary)] border-r border-[var(--border-default)] p-4 md:sticky md:top-16 md:z-0 md:h-[calc(100vh-64px)] md:w-64 md:border-r-0 md:bg-transparent"
           >
-            {/* Mobile Close */}
+            {/* Mobile Header */}
             <div className="mb-4 flex items-center justify-between md:hidden">
-              <span className="font-display text-sm tracking-wide">Navigation</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">Navigation</span>
               <button
                 onClick={onClose}
-                className="rounded-full border border-[var(--line)] bg-[var(--panel)] p-2"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-primary)] transition-colors"
               >
-                <Icon name="close" className="h-4 w-4 text-[var(--muted)]" />
+                <Icon name="close" className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <Card glow className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="inline-flex items-center rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.04)] px-2.5 py-1 text-[10px] tracking-[0.24em] uppercase text-[var(--muted)]">
-                      Documentation
-                    </span>
-                    <div className="mt-2 text-sm font-semibold">Select a topic</div>
-                    <div className="mt-1 text-[11px] text-[var(--muted)] font-body">
-                      Click any section to navigate
-                    </div>
-                  </div>
-                </div>
+            {/* Search */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2">
+                <Icon name="search" className="h-4 w-4 text-[var(--text-tertiary)]" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+                />
+              </div>
+            </div>
 
-                {/* Search */}
-                <div className="mt-4">
-                  <label className="text-[10px] tracking-[0.28em] uppercase text-[var(--muted)]">Search</label>
-                  <div className="mt-2 flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--bg1)] px-3 py-2">
-                    <Icon name="search" className="h-4 w-4 text-[var(--muted)]" />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search docs..."
-                      className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
-                    />
-                  </div>
-                </div>
+            {/* Navigation */}
+            <nav className="space-y-1">
+              {filtered.map((section) => (
+                <NavItem
+                  key={section.slug}
+                  section={section}
+                  active={currentSlug === section.slug || (pathname === '/' && section.slug === 'getting-started')}
+                  onClick={onClose}
+                />
+              ))}
+            </nav>
 
-                {/* Navigation Items */}
-                <nav className="mt-4 space-y-1">
-                  {filtered.map((section) => (
-                    <NavItem
-                      key={section.slug}
-                      section={section}
-                      active={currentSlug === section.slug || (pathname === '/' && section.slug === 'welcome')}
-                      onClick={onClose}
-                    />
-                  ))}
-                </nav>
-              </Card>
-
-              {/* Quick Links */}
-              <Card className="p-4">
-                <div className="text-xs font-semibold mb-3">Quick Links</div>
-                <div className="space-y-2 text-[11px] text-[var(--muted)]">
-                  <a
-                    href="https://github.com/GizAI/repotutor"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 hover:text-[var(--ink)] transition-colors"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-                    GitHub
-                  </a>
-                  <a
-                    href="https://github.com/GizAI/repotutor/issues"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 hover:text-[var(--ink)] transition-colors"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent2)]" />
-                    Report Issue
-                  </a>
-                </div>
-              </Card>
+            {/* Quick Links */}
+            <div className="mt-6 pt-4 border-t border-[var(--border-default)]">
+              <div className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wide mb-3">
+                Quick Links
+              </div>
+              <div className="space-y-1">
+                <a
+                  href="https://reson.buzz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                  Reson App
+                </a>
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-tertiary)]" />
+                  GitHub
+                </a>
+              </div>
             </div>
           </motion.aside>
         </>
@@ -145,22 +129,19 @@ function NavItem({ section, active, onClick }: NavItemProps) {
     <Link
       href={`/${section.slug}`}
       onClick={onClick}
-      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition ${
+      className={`group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors ${
         active
-          ? 'bg-[var(--panel)] text-[var(--ink)] shadow-[0_18px_50px_var(--shadow)]'
-          : 'text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--panel)]/45'
+          ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full transition ${
-          active ? 'bg-[var(--accent)]' : 'bg-[var(--line)] group-hover:bg-[var(--accent2)]'
-        }`}
+      <Icon
+        name={section.icon as IconName}
+        className={`h-4 w-4 shrink-0 ${active ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`}
       />
       <div className="flex-1 min-w-0">
-        <span className="text-xs tracking-wide block truncate">{section.title}</span>
-        <span className="text-[10px] text-[var(--muted)] block truncate">{section.description}</span>
+        <span className="text-sm font-medium block truncate">{section.title}</span>
       </div>
-      <Icon name={section.icon as IconName} className="h-4 w-4 shrink-0 opacity-50" />
     </Link>
   );
 }

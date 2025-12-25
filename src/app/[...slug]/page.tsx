@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
 import { getDocBySlug, getAllSlugs, getAdjacentDocs, getAllDocs } from '@/lib/mdx';
 import { DocPageClient } from './client';
+import { serverMdxComponents } from '@/components/mdx/server-components';
 
 export async function generateStaticParams() {
   const slugs = getAllSlugs();
@@ -39,6 +40,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug: stri
     <DocPageClient doc={doc} adjacent={adjacent} docs={docs}>
       <MDXRemote
         source={doc.content}
+        components={serverMdxComponents}
         options={{
           mdxOptions: {
             remarkPlugins: [remarkGfm],

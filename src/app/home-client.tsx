@@ -9,137 +9,138 @@ import type { DocMeta } from '@/lib/mdx';
 
 interface HomePageClientProps {
   docs: DocMeta[];
+  repoName?: string;
+  repoDescription?: string;
 }
 
-export function HomePageClient({ docs }: HomePageClientProps) {
+export function HomePageClient({ docs, repoName = 'Repository', repoDescription }: HomePageClientProps) {
   return (
     <DocsLayout docs={docs}>
-      <div className="space-y-10">
+      <div className="space-y-8">
         {/* Hero */}
-        <Card glow className="p-6 sm:p-8">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
+          className="py-4"
+        >
           <motion.div
-            initial="hidden"
-            animate="show"
-            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.07 } } }}
+            variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+            className="flex flex-wrap items-center gap-2"
           >
-            <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-              <div className="flex flex-wrap items-center gap-2">
-                <Chip>AI-Powered</Chip>
-                <Chip>MDX</Chip>
-                <Chip>Mermaid</Chip>
-                <Chip>Interactive</Chip>
-              </div>
-            </motion.div>
-
-            <motion.h1
-              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
-              className="mt-5 font-display text-3xl sm:text-5xl leading-[1.04] text-[var(--ink)]"
-            >
-              RepoTutor
-              <span className="block text-[var(--muted)] font-body text-lg sm:text-xl mt-3">
-                Transform any codebase into beautiful, interactive documentation
-              </span>
-            </motion.h1>
-
-            <motion.p
-              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
-              className="mt-4 text-sm text-[var(--muted)] font-body max-w-2xl"
-            >
-              Just add MDX files to <code className="bg-[var(--panel)] px-1.5 py-0.5 rounded text-[var(--accent)]">content/</code> folder.
-              Mermaid diagrams, interactive components, and code highlighting are all auto-applied.
-            </motion.p>
-
-            <motion.div
-              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
-              className="mt-6 flex flex-wrap gap-3"
-            >
-              <Link
-                href="/welcome"
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-5 py-2.5 text-sm font-medium text-[var(--accent)] transition hover:bg-[var(--accent)]/20"
-              >
-                Get Started
-                <Icon name="arrow" className="h-4 w-4" />
-              </Link>
-              <a
-                href="https://github.com/GizAI/repotutor"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--panel)]/60 px-5 py-2.5 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--ink)]"
-              >
-                GitHub
-              </a>
-            </motion.div>
+            <Chip variant="accent">RepoTutor</Chip>
+            <Chip>AI-Powered</Chip>
           </motion.div>
-        </Card>
 
-        {/* Features */}
+          <motion.h1
+            variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+            className="mt-6 text-display-lg text-[var(--text-primary)]"
+          >
+            {repoName}
+          </motion.h1>
+
+          <motion.p
+            variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+            className="mt-4 text-body-lg text-[var(--text-secondary)] max-w-2xl"
+          >
+            {repoDescription || 'Intelligent documentation system for code exploration. Browse source files, ask questions, and get AI-generated insights.'}
+          </motion.p>
+
+          <motion.div
+            variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+            className="mt-8 flex flex-wrap gap-3"
+          >
+            <Link
+              href="/browse"
+              className="btn btn-primary px-5 py-2.5"
+            >
+              Browse Files
+              <Icon name="arrow" className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/getting-started"
+              className="btn btn-secondary px-5 py-2.5"
+            >
+              Documentation
+            </Link>
+          </motion.div>
+        </motion.div>
+
+        {/* Key Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FeatureCard
-            icon="code"
-            title="MDX Powered"
-            description="Write in Markdown with React components inline."
+            icon="folder"
+            title="File Browser"
+            description="Navigate the entire codebase with syntax-highlighted file viewing."
           />
           <FeatureCard
-            icon="wires"
-            title="Auto Diagrams"
-            description="Mermaid code blocks render as beautiful diagrams."
+            icon="search"
+            title="Smart Search"
+            description="Full-text search across all files. Find anything instantly."
           />
           <FeatureCard
             icon="spark"
-            title="Component Library"
-            description="Card, Callout, Grid, Steps and more ready to use."
+            title="AI Assistant"
+            description="Ask questions and get intelligent answers about the code."
           />
         </div>
 
-        {/* How it works */}
-        <AnimatedCard>
-          <h2 className="font-display text-xl text-[var(--ink)] mb-4">Quick Start</h2>
-          <div className="space-y-4">
-            <Step number={1} title="Initialize">
-              <code className="text-[var(--accent)]">npx repotutor init</code> in your project
+        {/* How It Works */}
+        <Card padding="lg">
+          <h2 className="text-heading text-[var(--text-primary)] mb-6">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Step number={1} title="Browse the Code">
+              Navigate through the file tree, open any file to see syntax-highlighted source code.
             </Step>
-            <Step number={2} title="Add Content">
-              Create MDX files in <code className="text-[var(--accent)]">content/</code> folder
+            <Step number={2} title="Search Everything">
+              Use the search to find definitions, usages, and patterns across all files.
             </Step>
-            <Step number={3} title="Run">
-              <code className="text-[var(--accent)]">npm run dev</code> and open localhost:3000
+            <Step number={3} title="Ask Questions">
+              Open the AI chat panel and ask about architecture or specific functions.
+            </Step>
+            <Step number={4} title="Generate Docs">
+              Get AI-generated documentation for any file or module on demand.
             </Step>
           </div>
-        </AnimatedCard>
+        </Card>
 
-        {/* Example */}
-        <AnimatedCard>
-          <h2 className="font-display text-xl text-[var(--ink)] mb-4">Example MDX</h2>
-          <div className="rounded-xl terminal p-4 overflow-x-auto">
-            <pre className="text-xs font-mono text-[var(--ink)]">{`---
-title: Architecture
-description: System overview
-icon: spark
-order: 1
----
-
-# Architecture
-
-\`\`\`mermaid
-flowchart LR
-  A[Client] --> B[API]
-  B --> C[Database]
-\`\`\`
-
-<Callout type="tip" title="Tip">
-  Mermaid blocks auto-render as diagrams!
-</Callout>
-
-<Grid cols={2}>
-  <Feature icon="bolt" title="Fast">
-    Built with Next.js 15 + Turbopack
-  </Feature>
-  <Feature icon="shield" title="Type Safe">
-    Full TypeScript support
-  </Feature>
-</Grid>`}</pre>
-          </div>
-        </AnimatedCard>
+        {/* Quick Links */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link href="/browse" className="group">
+            <Card hover className="h-full">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)]">
+                  <Icon name="folder" className="h-5 w-5 text-[var(--accent)]" />
+                </div>
+                <div>
+                  <h3 className="text-body-lg font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                    Source Code
+                  </h3>
+                  <p className="mt-1 text-caption text-[var(--text-secondary)]">
+                    Browse all files and directories in the repository
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+          <Link href="/overview" className="group">
+            <Card hover className="h-full">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-tertiary)]">
+                  <Icon name="book" className="h-5 w-5 text-[var(--text-secondary)]" />
+                </div>
+                <div>
+                  <h3 className="text-body-lg font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                    Documentation
+                  </h3>
+                  <p className="mt-1 text-caption text-[var(--text-secondary)]">
+                    Read the project documentation and guides
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+        </div>
       </div>
     </DocsLayout>
   );
@@ -148,13 +149,13 @@ flowchart LR
 function FeatureCard({ icon, title, description }: { icon: IconName; title: string; description: string }) {
   return (
     <AnimatedCard hover>
-      <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--line)] bg-[var(--bg1)]">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)]">
           <Icon name={icon} className="h-5 w-5 text-[var(--accent)]" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-[var(--ink)]">{title}</h3>
-          <p className="mt-1 text-[11px] text-[var(--muted)]">{description}</p>
+          <h3 className="text-body-lg font-medium text-[var(--text-primary)]">{title}</h3>
+          <p className="mt-1 text-caption text-[var(--text-secondary)]">{description}</p>
         </div>
       </div>
     </AnimatedCard>
@@ -164,12 +165,12 @@ function FeatureCard({ icon, title, description }: { icon: IconName; title: stri
 function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-4">
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-semibold">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white text-xs font-semibold">
         {number}
       </div>
       <div>
-        <div className="text-sm font-semibold text-[var(--ink)]">{title}</div>
-        <div className="text-[11px] text-[var(--muted)] mt-1">{children}</div>
+        <div className="font-medium text-[var(--text-primary)]">{title}</div>
+        <div className="text-caption text-[var(--text-secondary)] mt-1">{children}</div>
       </div>
     </div>
   );

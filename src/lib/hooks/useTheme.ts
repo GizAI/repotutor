@@ -1,42 +1,91 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { THEMES, type Theme } from '../themes';
+import {
+  type ThemeMode,
+  type ResolvedTheme,
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+  resolveTheme,
+} from '../themes';
 
-type ThemeId = 'noir' | 'paper';
+interface UseThemeReturn {
+  /** Current theme mode (dark/light/system) */
+  themeMode: ThemeMode;
+  /** Resolved theme for rendering (dark/light) */
+  resolvedTheme: ResolvedTheme;
+  /** Set theme mode */
+  setTheme: (mode: ThemeMode) => void;
+  /** Cycle through themes: dark -> light -> system -> dark */
+  cycleTheme: () => void;
+  /** Whether the component has mounted (for SSR) */
+  mounted: boolean;
+  /** Whether system prefers dark mode */
+  systemPrefersDark: boolean;
+}
 
-export function useTheme() {
-  const [themeId, setThemeId] = useState<ThemeId>('noir');
+export function useTheme(): UseThemeReturn {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(DEFAULT_THEME);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(true);
   const [mounted, setMounted] = useState(false);
   const initialized = useRef(false);
 
+  // Initialize from localStorage and listen for system preference
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
-    const stored = localStorage.getItem('reson-docs-theme') as ThemeId | null;
-    if (stored && THEMES[stored]) {
-      setThemeId(stored);
+    // Get stored preference
+    const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
+    if (stored && ['dark', 'light', 'system'].includes(stored)) {
+      setThemeMode(stored);
     }
+
+    // Get system preference
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setSystemPrefersDark(mediaQuery.matches);
+
+    // Listen for system preference changes
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemPrefersDark(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
     setMounted(true);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
   }, []);
 
-  const setTheme = useCallback((id: ThemeId) => {
-    setThemeId(id);
-    localStorage.setItem('reson-docs-theme', id);
+  // Apply theme to document
+  useEffect(() => {
+    if (!mounted) return;
+
+    const resolved = resolveTheme(themeMode, systemPrefersDark);
+    document.documentElement.setAttribute('data-theme', resolved);
+  }, [themeMode, systemPrefersDark, mounted]);
+
+  const setTheme = useCallback((mode: ThemeMode) => {
+    setThemeMode(mode);
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(themeId === 'noir' ? 'paper' : 'noir');
-  }, [themeId, setTheme]);
+  const cycleTheme = useCallback(() => {
+    const order: ThemeMode[] = ['dark', 'light', 'system'];
+    const currentIndex = order.indexOf(themeMode);
+    const nextIndex = (currentIndex + 1) % order.length;
+    setTheme(order[nextIndex]);
+  }, [themeMode, setTheme]);
 
-  const theme: Theme = THEMES[themeId] ?? THEMES.noir;
+  const resolvedTheme = resolveTheme(themeMode, systemPrefersDark);
 
   return {
-    themeId,
-    theme,
+    themeMode,
+    resolvedTheme,
     setTheme,
-    toggleTheme,
+    cycleTheme,
     mounted,
+    systemPrefersDark,
   };
 }

@@ -103,7 +103,7 @@ function InlineCode({ children }: { children: ReactNode }) {
 
 // Code Block with syntax highlighting placeholder and Mermaid support
 function Pre({ children }: { children: ReactNode }) {
-  const codeElement = children as React.ReactElement;
+  const codeElement = children as React.ReactElement<{ className?: string; children?: string }>;
   const className = codeElement?.props?.className || '';
   const content = codeElement?.props?.children || '';
   const language = className.replace('language-', '');

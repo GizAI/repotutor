@@ -3,3 +3,4 @@ export { Header } from './Header';
 export { Sidebar } from './Sidebar';
 export { Background } from './Background';
 export { DocsLayout } from './DocsLayout';
+export { GlobalProviders, useGlobal } from './GlobalProviders';
