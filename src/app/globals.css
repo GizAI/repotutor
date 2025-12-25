@@ -1,0 +1,267 @@
+/* Typography - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Noto+Sans+KR:wght@300;400;500;600;700&family=Azeret+Mono:wght@300;500;700&display=swap');
+
+@import 'tailwindcss';
+
+:root {
+  --font-display: 'Unbounded', ui-sans-serif, system-ui;
+  --font-body: 'Noto Sans KR', ui-sans-serif, system-ui;
+  --font-mono: 'Azeret Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Atmospheric Background */
+.atlas-bg {
+  background:
+    radial-gradient(1100px 700px at 14% 8%, rgba(170, 255, 0, 0.16), transparent 55%),
+    radial-gradient(900px 520px at 82% 24%, rgba(255, 88, 0, 0.14), transparent 58%),
+    radial-gradient(1200px 920px at 60% 88%, rgba(255, 255, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, var(--bg1) 70%, var(--bg0) 100%);
+  position: relative;
+  overflow: clip;
+}
+
+[data-theme='paper'] .atlas-bg {
+  background:
+    radial-gradient(1100px 700px at 14% 8%, rgba(10, 124, 255, 0.12), transparent 55%),
+    radial-gradient(900px 520px at 82% 24%, rgba(255, 45, 85, 0.1), transparent 58%),
+    radial-gradient(1200px 920px at 60% 88%, rgba(16, 22, 19, 0.06), transparent 60%),
+    linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 70%, var(--bg0) 100%);
+}
+
+.atlas-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.33;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+[data-theme='paper'] .atlas-bg::before {
+  opacity: 0.22;
+  background-image:
+    linear-gradient(to right, rgba(16, 22, 19, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 22, 19, 0.1) 1px, transparent 1px);
+  mix-blend-mode: multiply;
+}
+
+.atlas-bg::after {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0px, rgba(255, 255, 255, 0.06) 1px, transparent 3px, transparent 7px);
+  opacity: 0.18;
+  transform: rotate(0.2deg);
+  pointer-events: none;
+  animation: scan 10s linear infinite;
+}
+
+[data-theme='paper'] .atlas-bg::after {
+  opacity: 0.12;
+  background: repeating-linear-gradient(180deg, rgba(16, 22, 19, 0.06) 0px, rgba(16, 22, 19, 0.06) 1px, transparent 3px, transparent 7px);
+}
+
+@keyframes scan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(30px); }
+}
+
+/* Noise Overlay */
+.noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="180" height="180" filter="url(%23n)" opacity=".35"/></svg>');
+  mix-blend-mode: overlay;
+}
+
+[data-theme='paper'] .noise {
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+}
+
+/* Terminal Style */
+.terminal {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 28%),
+    radial-gradient(800px 180px at 20% 0%, rgba(255, 255, 255, 0.08), transparent 55%),
+    rgba(0, 0, 0, 0.34);
+  border: 1px solid var(--line);
+}
+
+[data-theme='paper'] .terminal {
+  background:
+    linear-gradient(180deg, rgba(16, 22, 19, 0.06), transparent 28%),
+    radial-gradient(800px 180px at 20% 0%, rgba(16, 22, 19, 0.08), transparent 55%),
+    rgba(255, 255, 255, 0.55);
+}
+
+/* Mermaid Diagram Styling */
+.mermaid-wrap svg .node rect,
+.mermaid-wrap svg .node polygon,
+.mermaid-wrap svg .node path {
+  rx: 12;
+  ry: 12;
+}
+
+.mermaid-wrap svg text {
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.02em;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent);
+  color: var(--bg0);
+}
+
+/* Focus */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Prose Content */
+.prose {
+  color: var(--ink);
+  line-height: 1.8;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1 {
+  font-size: 2rem;
+}
+
+.prose h2 {
+  font-size: 1.5rem;
+}
+
+.prose h3 {
+  font-size: 1.25rem;
+}
+
+.prose p {
+  margin-bottom: 1.25em;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  background: var(--panel);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.prose pre {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1.5em 0;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.prose ul,
+.prose ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin: 0.5em 0;
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  color: var(--accent2);
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  margin: 1.5em 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 2em 0;
+}
