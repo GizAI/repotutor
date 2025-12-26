@@ -13,12 +13,13 @@ export default async function BrowsePage({ params }: BrowsePageProps) {
   const config = getRepoConfig();
   const pathInfo = getPathInfo(relativePath);
 
-  // 사이드바용 루트 파일 트리 항상 로드 (depth 10으로 증가)
+  // 사이드바용 루트 파일 트리 항상 로드 (무제한 depth)
   let entries: Awaited<ReturnType<typeof readFileTree>> | null = null;
   try {
     // 파일 뷰어에서도 사이드바에 파일 트리 표시를 위해 루트 트리 로드
-    entries = await readFileTree('', 10);
-  } catch {
+    entries = await readFileTree('');
+  } catch (error) {
+    console.error('[BrowsePage] readFileTree error:', error);
     entries = [];
   }
 

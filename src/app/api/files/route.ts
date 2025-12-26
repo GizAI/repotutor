@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     const entries = isTree
-      ? await readFileTree(relativePath, Math.min(depth, 5))
+      ? await readFileTree(relativePath, depth > 0 ? depth : Infinity)
       : await readDirectory(relativePath);
 
     return NextResponse.json({

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AnimatedCard } from '@/components/ui';
 import { MarkdownViewer, parseFrontmatter, type HeadingItem, type DocFrontmatter } from './MarkdownViewer';
 import { DocNavigation, DocHeader, TableOfContents, type DocLink } from './DocNavigation';
+import { useThemeContext } from '@/components/layout/ThemeProvider';
 
 interface FileViewerProps {
   path: string;
@@ -34,14 +35,16 @@ function getFileType(path: string): 'markdown' | 'image' | 'pdf' | 'code' {
   return 'code';
 }
 
-export function FileViewer({ path, theme = 'dark', siblings = [] }: FileViewerProps) {
+export function FileViewer({ path, siblings = [] }: FileViewerProps) {
   const [data, setData] = useState<FileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [headings, setHeadings] = useState<HeadingItem[]>([]);
   const [frontmatter, setFrontmatter] = useState<DocFrontmatter>({});
+  const { resolvedTheme } = useThemeContext();
 
+  const theme = resolvedTheme === 'light' ? 'light' : 'dark';
   const fileType = getFileType(path);
   const isBinary = fileType === 'image' || fileType === 'pdf';
   const isMarkdown = fileType === 'markdown';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { SessionSummary } from '@/hooks/useSessionManager';
@@ -163,11 +163,17 @@ export function SessionList({
   onRename,
 }: SessionListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [favorites, setFavorites] = useState<Set<string>>(() => getFavorites());
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [sessionTags, setSessionTags] = useState<Record<string, SessionTag[]>>(() => getSessionTags());
+  const [sessionTags, setSessionTags] = useState<Record<string, SessionTag[]>>({});
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // SSR-safe: Load from localStorage after mount
+  useEffect(() => {
+    setFavorites(getFavorites());
+    setSessionTags(getSessionTags());
+  }, []);
 
   // Get all unique tags for filtering
   const allTags = useMemo(() => {
@@ -270,10 +276,10 @@ export function SessionList({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -300 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -300 }}
-      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="absolute inset-0 z-30 bg-[var(--bg-primary)] flex flex-col"
     >
       {/* Header */}

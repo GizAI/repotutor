@@ -2,13 +2,35 @@
 
 import { useState, useEffect, createContext, useContext } from 'react';
 import { usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { PanelRight } from 'lucide-react';
 import { SearchModal, useSearchModal } from '@/components/search';
-import { ChatBot, useChatBot } from '@/components/chat';
+import { ChatBot } from '@/components/chat';
+import { TabProvider, TabBar, useTabSafe } from '@/components/navigation';
+
+// SSR-safe media query hook
+function useIsMobileSafe(): { isMobile: boolean; mounted: boolean } {
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const media = window.matchMedia('(max-width: 1023px)');
+    setIsMobile(media.matches);
+
+    const listener = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
+
+  return { isMobile, mounted };
+}
 
 interface GlobalContextType {
   openSearch: () => void;
   openChat: () => void;
   toggleChat: () => void;
+  isChatOpen: boolean;
 }
 
 const GlobalContext = createContext<GlobalContextType | null>(null);
@@ -22,99 +44,152 @@ export function useGlobal() {
 }
 
 export function GlobalProviders({ children }: { children: React.ReactNode }) {
-  const searchModal = useSearchModal();
-  const chatBot = useChatBot();
-  const pathname = usePathname();
+  return (
+    <TabProvider>
+      <GlobalProvidersInner>{children}</GlobalProvidersInner>
+    </TabProvider>
+  );
+}
 
-  // Extract current file path from URL
+function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
+  const searchModal = useSearchModal();
+  const pathname = usePathname();
+  const { isMobile, mounted } = useIsMobileSafe();
+  const tabContext = useTabSafe();
+
+  // 데스크톱: 기본으로 열려있음, 모바일: 탭으로 관리
+  const [isAgentOpen, setIsAgentOpen] = useState(true);
+
   const currentPath = pathname.startsWith('/browse/')
     ? pathname.replace('/browse/', '')
     : undefined;
+
+  const isChatTabActive = tabContext?.activeTab === 'chat';
+
+  // 키보드 단축키
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchModal.open();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        if (isMobile && tabContext) {
+          tabContext.setActiveTab(tabContext.activeTab === 'chat' ? 'browse' : 'chat');
+        } else {
+          setIsAgentOpen((prev) => !prev);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchModal, isMobile, tabContext]);
 
   return (
     <GlobalContext.Provider
       value={{
         openSearch: searchModal.open,
-        openChat: chatBot.open,
-        toggleChat: chatBot.toggle,
+        openChat: () => {
+          if (isMobile && tabContext) {
+            tabContext.setActiveTab('chat');
+          } else {
+            setIsAgentOpen(true);
+          }
+        },
+        toggleChat: () => {
+          if (isMobile && tabContext) {
+            tabContext.setActiveTab(tabContext.activeTab === 'chat' ? 'browse' : 'chat');
+          } else {
+            setIsAgentOpen((prev) => !prev);
+          }
+        },
+        isChatOpen: isMobile ? isChatTabActive ?? false : isAgentOpen,
       }}
     >
-      {children}
+      {/* SSR/초기 로딩: 데스크톱 레이아웃으로 통일 (hydration 일치) */}
+      {!mounted ? (
+        <div className="flex min-h-screen">
+          <div className="flex-1 min-w-0">{children}</div>
+        </div>
+      ) : isMobile ? (
+        /* 모바일: 탭 기반 레이아웃 */
+        <>
+          <div
+            className={tabContext?.activeTab === 'browse' ? 'block' : 'hidden'}
+            style={{ paddingBottom: '3.5rem' }}
+          >
+            {children}
+          </div>
 
-      {/* Global Search Modal */}
+          <AnimatePresence mode="wait">
+            {isChatTabActive && (
+              <motion.div
+                key="chat-tab"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-50 bg-[var(--bg-primary)]"
+                style={{ paddingBottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
+              >
+                <ChatBot
+                  isOpen={true}
+                  onClose={() => tabContext?.setActiveTab('browse')}
+                  currentPath={currentPath}
+                  fullScreen
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <TabBar />
+        </>
+      ) : (
+        /* 데스크톱: 분리 레이아웃 */
+        <div className="flex min-h-screen">
+          {/* 메인 콘텐츠 */}
+          <div
+            className="flex-1 min-w-0 transition-all duration-300"
+            style={{ marginRight: isAgentOpen ? '420px' : '0' }}
+          >
+            {children}
+          </div>
+
+          {/* AI Agent 패널 */}
+          <AnimatePresence>
+            {isAgentOpen && (
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="fixed right-0 top-0 h-screen w-[420px] z-[60] border-l border-[var(--border-default)] bg-[var(--bg-primary)]"
+              >
+                <ChatBot
+                  isOpen={true}
+                  onClose={() => setIsAgentOpen(false)}
+                  currentPath={currentPath}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Agent 토글 버튼 (접혀있을 때) */}
+          {!isAgentOpen && (
+            <button
+              onClick={() => setIsAgentOpen(true)}
+              className="fixed right-4 bottom-6 z-[70] flex items-center gap-2 px-4 py-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:shadow-xl transition-all"
+              title="AI 에이전트 열기 (⌘/)"
+            >
+              <PanelRight className="w-5 h-5" />
+              <span className="text-sm font-medium">AI 에이전트</span>
+            </button>
+          )}
+        </div>
+      )}
+
       <SearchModal isOpen={searchModal.isOpen} onClose={searchModal.close} />
-
-      {/* AI ChatBot */}
-      <ChatBot
-        isOpen={chatBot.isOpen}
-        onClose={chatBot.close}
-        currentPath={currentPath}
-      />
-
-      {/* Floating Action Buttons */}
-      <FloatingButtons
-        onSearchClick={searchModal.open}
-        onChatClick={chatBot.toggle}
-        isChatOpen={chatBot.isOpen}
-      />
     </GlobalContext.Provider>
-  );
-}
-
-interface FloatingButtonsProps {
-  onSearchClick: () => void;
-  onChatClick: () => void;
-  isChatOpen: boolean;
-}
-
-function FloatingButtons({ onSearchClick, onChatClick, isChatOpen }: FloatingButtonsProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  return (
-    <div className={`fixed bottom-6 right-6 z-[80] flex flex-col gap-3 transition-transform duration-300 ${isChatOpen ? 'translate-x-[-440px] sm:translate-x-0' : ''}`}>
-      {/* Search Button */}
-      <button
-        onClick={onSearchClick}
-        className="group flex items-center gap-2 px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-full shadow-lg hover:border-[var(--accent)] hover:shadow-xl transition-all"
-        title="검색 (Cmd+K)"
-      >
-        <svg className="w-5 h-5 text-[var(--text-secondary)] group-hover:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <span className="hidden sm:inline text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">검색</span>
-        <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
-          ⌘K
-        </kbd>
-      </button>
-
-      {/* Chat Button */}
-      <button
-        onClick={onChatClick}
-        className={`group flex items-center gap-2 px-4 py-3 rounded-full shadow-lg transition-all ${
-          isChatOpen
-            ? 'bg-[var(--accent)] text-[var(--bg-primary)] border border-transparent'
-            : 'bg-[var(--bg-secondary)] border border-[var(--border-default)] hover:border-[var(--accent)] hover:shadow-xl'
-        }`}
-        title="AI 챗봇 (Cmd+/)"
-      >
-        <svg className={`w-5 h-5 ${isChatOpen ? '' : 'text-[var(--text-secondary)] group-hover:text-[var(--accent)]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        <span className={`hidden sm:inline text-sm ${isChatOpen ? '' : 'text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]'}`}>
-          {isChatOpen ? '닫기' : 'AI 챗봇'}
-        </span>
-        {!isChatOpen && (
-          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
-            ⌘/
-          </kbd>
-        )}
-      </button>
-    </div>
   );
 }

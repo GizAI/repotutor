@@ -609,6 +609,53 @@ body {
 }
 
 /* ============================================
+   TAB BAR & SAFE AREA
+   ============================================ */
+
+/* iOS Safe Area support */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Tab bar height reservation */
+.tab-content-area {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Tab transitions */
+.tab-panel-enter {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.tab-panel-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+
+.tab-panel-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.tab-panel-exit-active {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+
+/* Touch-friendly tap targets */
+@media (max-width: 1023px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ============================================
    COMPONENT BASE STYLES
    ============================================ */
 

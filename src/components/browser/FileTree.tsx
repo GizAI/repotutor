@@ -18,6 +18,8 @@ interface FileTreeProps {
   onNavigate?: () => void;
 }
 
+const STORAGE_KEY = 'filetree-expanded-paths';
+
 // Helper to get all parent paths of a given path
 function getParentPaths(path: string): string[] {
   const parts = path.split('/');
@@ -26,6 +28,26 @@ function getParentPaths(path: string): string[] {
     parents.push(parts.slice(0, i).join('/'));
   }
   return parents;
+}
+
+// Load expanded paths from localStorage
+function loadExpandedPaths(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch {}
+  return new Set();
+}
+
+// Save expanded paths to localStorage
+function saveExpandedPaths(paths: Set<string>) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...paths]));
+  } catch {}
 }
 
 export function FileTree({ entries, basePath = '/browse', onNavigate }: FileTreeProps) {
@@ -39,11 +61,45 @@ export function FileTree({ entries, basePath = '/browse', onNavigate }: FileTree
     return '';
   }, [pathname, basePath]);
 
-  // Calculate which paths should be expanded to show the current file
-  const expandedPaths = useMemo(() => {
-    if (!currentPath) return new Set<string>();
-    return new Set(getParentPaths(currentPath));
-  }, [currentPath]);
+  // SSR-safe: 초기값은 빈 Set, useEffect에서 localStorage 로드
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [mounted, setMounted] = useState(false);
+
+  // 마운트 시 localStorage에서 펼침 상태 로드 + 현재 경로 부모 폴더 펼침
+  useEffect(() => {
+    const saved = loadExpandedPaths();
+    if (currentPath) {
+      getParentPaths(currentPath).forEach((p) => saved.add(p));
+    }
+    setExpandedPaths(saved);
+    setMounted(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // currentPath 변경 시 해당 파일의 부모 폴더들 자동 펼침
+  useEffect(() => {
+    if (mounted && currentPath) {
+      setExpandedPaths((prev) => {
+        const next = new Set(prev);
+        getParentPaths(currentPath).forEach((p) => next.add(p));
+        saveExpandedPaths(next);
+        return next;
+      });
+    }
+  }, [currentPath, mounted]);
+
+  const toggleExpand = useCallback((path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      saveExpandedPaths(next);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="text-sm font-mono">
@@ -54,7 +110,8 @@ export function FileTree({ entries, basePath = '/browse', onNavigate }: FileTree
           basePath={basePath}
           depth={0}
           onNavigate={onNavigate}
-          initialExpandedPaths={expandedPaths}
+          expandedPaths={expandedPaths}
+          toggleExpand={toggleExpand}
           currentPath={currentPath}
         />
       ))}
@@ -67,51 +124,42 @@ interface FileTreeNodeProps {
   basePath: string;
   depth: number;
   onNavigate?: () => void;
-  initialExpandedPaths: Set<string>;
+  expandedPaths: Set<string>;
+  toggleExpand: (path: string) => void;
   currentPath: string;
 }
 
-function FileTreeNode({ entry, basePath, depth, onNavigate, initialExpandedPaths, currentPath }: FileTreeNodeProps) {
+function FileTreeNode({
+  entry,
+  basePath,
+  depth,
+  onNavigate,
+  expandedPaths,
+  toggleExpand,
+  currentPath
+}: FileTreeNodeProps) {
   const pathname = usePathname();
-
-  // Determine if this node should be initially expanded
-  const shouldBeExpanded = initialExpandedPaths.has(entry.path) || depth === 0;
-  const [isExpanded, setIsExpanded] = useState(shouldBeExpanded);
-
-  // Ref to track if we've scrolled to the active item
   const nodeRef = useRef<HTMLAnchorElement>(null);
   const isActive = pathname === `${basePath}/${entry.path}`;
-
-  // Update expansion state when currentPath changes
-  useEffect(() => {
-    if (initialExpandedPaths.has(entry.path)) {
-      setIsExpanded(true);
-    }
-  }, [initialExpandedPaths, entry.path]);
+  const isExpanded = expandedPaths.has(entry.path);
+  const isInPath = currentPath.startsWith(entry.path + '/') || currentPath === entry.path;
 
   // Scroll active item into view on mount
   useEffect(() => {
     if (isActive && nodeRef.current) {
-      // Small delay to ensure DOM is ready
       setTimeout(() => {
         nodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
     }
   }, [isActive]);
 
-  const toggleExpand = useCallback(() => {
-    setIsExpanded((prev) => !prev);
-  }, []);
-
   const paddingLeft = depth * 16 + 8;
 
   if (entry.type === 'directory') {
-    const isInPath = initialExpandedPaths.has(entry.path);
-
     return (
       <div>
         <button
-          onClick={toggleExpand}
+          onClick={() => toggleExpand(entry.path)}
           className={`flex w-full items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors text-left active:bg-[var(--bg-tertiary)] ${
             isInPath ? 'bg-[var(--accent)]/5' : 'hover:bg-[var(--bg-tertiary)]'
           }`}
@@ -146,7 +194,8 @@ function FileTreeNode({ entry, basePath, depth, onNavigate, initialExpandedPaths
                   basePath={basePath}
                   depth={depth + 1}
                   onNavigate={onNavigate}
-                  initialExpandedPaths={initialExpandedPaths}
+                  expandedPaths={expandedPaths}
+                  toggleExpand={toggleExpand}
                   currentPath={currentPath}
                 />
               ))}

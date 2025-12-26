@@ -27,7 +27,6 @@ export function MicButton({ onTranscript, className = '', disabled = false }: Mi
     const checkSupport = () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setIsSupported(false);
-        setError('Microphone not supported');
         return;
       }
 
@@ -36,7 +35,6 @@ export function MicButton({ onTranscript, className = '', disabled = false }: Mi
           window.location.protocol !== 'https:' &&
           window.location.hostname !== 'localhost') {
         setIsSupported(false);
-        setError('Microphone requires HTTPS');
         return;
       }
 
@@ -46,6 +44,20 @@ export function MicButton({ onTranscript, className = '', disabled = false }: Mi
 
     checkSupport();
   }, []);
+
+  // Clean up on unmount - MUST be before any conditional returns
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // 마이크가 지원되지 않으면 아무것도 렌더링하지 않음
+  if (!isSupported) {
+    return null;
+  }
 
   // Start recording
   const startRecording = async () => {
@@ -153,15 +165,6 @@ export function MicButton({ onTranscript, className = '', disabled = false }: Mi
       stopRecording();
     }
   };
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   const getButtonState = () => {
     if (!isSupported || disabled) {

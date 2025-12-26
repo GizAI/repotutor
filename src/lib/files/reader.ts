@@ -115,7 +115,15 @@ export async function readDirectory(relativePath: string = ''): Promise<FileEntr
     if (isExcluded(entryRelativePath)) continue;
 
     const entryAbsolutePath = path.join(absolutePath, entry.name);
-    const entryStat = fs.statSync(entryAbsolutePath);
+
+    // 파일이 readdirSync와 statSync 사이에 삭제될 수 있음 (임시 파일 등)
+    let entryStat;
+    try {
+      entryStat = fs.statSync(entryAbsolutePath);
+    } catch {
+      // 파일이 없으면 건너뜀
+      continue;
+    }
 
     result.push({
       name: entry.name,
@@ -141,10 +149,10 @@ export async function readDirectory(relativePath: string = ''): Promise<FileEntr
 // 파일 트리 읽기 (재귀)
 export async function readFileTree(
   relativePath: string = '',
-  maxDepth: number = 3,
+  maxDepth: number = Infinity,
   currentDepth: number = 0
 ): Promise<FileTree[]> {
-  if (currentDepth >= maxDepth) return [];
+  if (maxDepth !== Infinity && currentDepth >= maxDepth) return [];
 
   const entries = await readDirectory(relativePath);
   const result: FileTree[] = [];

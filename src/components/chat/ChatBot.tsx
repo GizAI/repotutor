@@ -68,9 +68,10 @@ interface ChatBotProps {
   isOpen: boolean;
   onClose: () => void;
   currentPath?: string;
+  fullScreen?: boolean;
 }
 
-export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
+export function ChatBot({ isOpen, onClose, currentPath, fullScreen = false }: ChatBotProps) {
   // Session management
   const {
     sessions,
@@ -98,11 +99,15 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
   const [budgetWarning, setBudgetWarning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<{ name: string; dataUrl: string }[]>([]);
+  const [budgetLimit, setBudgetLimit] = useState(10);
 
-  // Get budget limit from localStorage
-  const budgetLimit = typeof window !== 'undefined'
-    ? parseFloat(localStorage.getItem('budgetLimit') || '10')
-    : 10;
+  // Get budget limit from localStorage (SSR-safe)
+  useEffect(() => {
+    const stored = localStorage.getItem('budgetLimit');
+    if (stored) {
+      setBudgetLimit(parseFloat(stored));
+    }
+  }, []);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -433,15 +438,14 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
 
   if (!isOpen) return null;
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, x: '100%' }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed inset-0 sm:inset-auto sm:right-0 sm:top-0 sm:h-screen sm:w-[420px] z-[90] flex flex-col bg-[var(--bg-primary)] border-l border-[var(--border-default)]"
-      >
+  // 풀스크린 모드 (모바일 탭용)
+  const containerClass = fullScreen
+    ? "flex flex-col h-full w-full bg-[var(--bg-primary)]"
+    : "fixed inset-0 sm:inset-auto sm:right-0 sm:top-0 sm:h-screen sm:w-[420px] z-[90] flex flex-col bg-[var(--bg-primary)] border-l border-[var(--border-default)]";
+
+  const content = (
+    <div className={containerClass}>
+
         {/* Header */}
         <header className="flex items-center gap-3 h-14 px-4 border-b border-[var(--border-default)]">
           {/* History Button */}
@@ -508,13 +512,15 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
             )}
           </div>
 
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-          >
-            <Icon name="close" className="h-5 w-5" />
-          </button>
+          {/* Close Button - 풀스크린 모드에서는 숨김 */}
+          {!fullScreen && (
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
+            >
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          )}
         </header>
 
         {/* Tool Calls */}
@@ -794,6 +800,25 @@ export function ChatBot({ isOpen, onClose, currentPath }: ChatBotProps) {
             />
           )}
         </AnimatePresence>
+    </div>
+  );
+
+  // 풀스크린 모드에서는 애니메이션 없이 반환
+  if (fullScreen) {
+    return content;
+  }
+
+  // 일반 모드에서는 슬라이드 애니메이션 적용
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, x: '100%' }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed inset-0 sm:inset-auto sm:right-0 sm:top-0 sm:h-screen sm:w-[420px] z-[90]"
+      >
+        {content}
       </motion.div>
     </AnimatePresence>
   );

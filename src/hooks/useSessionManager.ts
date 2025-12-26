@@ -50,7 +50,7 @@ export function useSessionManager() {
     setError(null);
 
     try {
-      const response = await fetch('/api/sessions?limit=30', {
+      const response = await fetch('/api/sessions/?limit=30', {
         credentials: 'same-origin',
       });
 
