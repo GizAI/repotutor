@@ -23,15 +23,33 @@ interface FileData {
   extension: string;
 }
 
-const MARKDOWN_EXTENSIONS = ['.md', '.mdx', '.markdown'];
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'];
-const PDF_EXTENSION = '.pdf';
+type FileCategory = 'markdown' | 'image' | 'video' | 'audio' | 'pdf' | 'code' | 'binary';
 
-function getFileType(path: string): 'markdown' | 'image' | 'pdf' | 'code' {
-  const lowerPath = path.toLowerCase();
-  if (MARKDOWN_EXTENSIONS.some(ext => lowerPath.endsWith(ext))) return 'markdown';
-  if (IMAGE_EXTENSIONS.some(ext => lowerPath.endsWith(ext))) return 'image';
-  if (lowerPath.endsWith(PDF_EXTENSION)) return 'pdf';
+// Simple file category detection based on extension
+function getFileCategory(path: string): FileCategory {
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+
+  // Markdown
+  if (['md', 'mdx', 'markdown'].includes(ext)) return 'markdown';
+
+  // Images
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'tiff', 'tif'].includes(ext)) return 'image';
+
+  // Video
+  if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v', 'ogv', 'flv', 'wmv'].includes(ext)) return 'video';
+
+  // Audio
+  if (['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'wma'].includes(ext)) return 'audio';
+
+  // PDF
+  if (ext === 'pdf') return 'pdf';
+
+  // Binary files (not displayable as text)
+  if (['zip', 'tar', 'gz', 'rar', '7z', 'exe', 'dll', 'so', 'dylib',
+       'woff', 'woff2', 'ttf', 'eot', 'otf',
+       'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) return 'binary';
+
+  // Default to code (text-based)
   return 'code';
 }
 
@@ -45,18 +63,18 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
   const { resolvedTheme } = useThemeContext();
 
   const theme = resolvedTheme === 'light' ? 'light' : 'dark';
-  const fileType = getFileType(path);
-  const isBinary = fileType === 'image' || fileType === 'pdf';
-  const isMarkdown = fileType === 'markdown';
+  const category = getFileCategory(path);
+  const isMediaOrBinary = ['image', 'video', 'audio', 'pdf', 'binary'].includes(category);
+  const isMarkdown = category === 'markdown';
 
   useEffect(() => {
-    // For binary files (images, PDFs), we don't fetch content through API
-    if (isBinary) {
+    // For media/binary files, we serve directly via raw API
+    if (isMediaOrBinary) {
       setData({
         path,
         name: path.split('/').pop() || path,
         content: '',
-        language: fileType,
+        language: category,
         size: 0,
         lines: 0,
         extension: path.split('.').pop() || '',
@@ -68,7 +86,7 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
     setLoading(true);
     setError(null);
 
-    const highlightParam = fileType === 'markdown' ? 'false' : 'true';
+    const highlightParam = isMarkdown ? 'false' : 'true';
 
     fetch(`/api/file/${path}?highlight=${highlightParam}&theme=${theme}`)
       .then((res) => {
@@ -81,7 +99,6 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
       })
       .then((fileData) => {
         setData(fileData);
-        // Parse frontmatter for markdown files
         if (isMarkdown && fileData.content) {
           const { frontmatter: fm } = parseFrontmatter(fileData.content);
           setFrontmatter(fm);
@@ -89,7 +106,7 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [path, theme, fileType, isBinary, isMarkdown]);
+  }, [path, theme, category, isMediaOrBinary, isMarkdown]);
 
   const handleCopy = async () => {
     if (data && data.content) {
@@ -129,15 +146,17 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
 
   if (!data) return null;
 
+  const rawUrl = `/api/file/${path}?raw=true`;
+  const fileName = data.name;
+
   // Image viewer
-  if (fileType === 'image') {
+  if (category === 'image') {
     return (
       <div className="space-y-3 lg:space-y-4">
-        <FileHeader name={data.name} type="image" />
+        <MediaHeader name={fileName} icon="🖼️" label="Image" />
         <AnimatedCard>
           <div className="flex flex-col items-center">
             <div className="relative max-w-full overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-tertiary)] p-2">
-              {/* Checkered background for transparency */}
               <div
                 className="absolute inset-2 rounded"
                 style={{
@@ -147,19 +166,54 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
                 }}
               />
               <img
-                src={`/api/file/${path}?raw=true`}
-                alt={data.name}
+                src={rawUrl}
+                alt={fileName}
                 className="relative max-w-full h-auto max-h-[70vh] object-contain"
                 loading="lazy"
               />
             </div>
-            <a
-              href={`/api/file/${path}?raw=true`}
-              download={data.name}
-              className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
+            <DownloadButton url={rawUrl} name={fileName} />
+          </div>
+        </AnimatedCard>
+      </div>
+    );
+  }
+
+  // Video viewer
+  if (category === 'video') {
+    return (
+      <div className="space-y-3 lg:space-y-4">
+        <MediaHeader name={fileName} icon="🎬" label="Video" />
+        <AnimatedCard>
+          <div className="flex flex-col items-center">
+            <video
+              src={rawUrl}
+              controls
+              className="w-full max-h-[70vh] rounded-lg bg-black"
+              preload="metadata"
             >
-              Download Image
-            </a>
+              Your browser does not support the video tag.
+            </video>
+            <DownloadButton url={rawUrl} name={fileName} />
+          </div>
+        </AnimatedCard>
+      </div>
+    );
+  }
+
+  // Audio viewer
+  if (category === 'audio') {
+    return (
+      <div className="space-y-3 lg:space-y-4">
+        <MediaHeader name={fileName} icon="🎵" label="Audio" />
+        <AnimatedCard>
+          <div className="flex flex-col items-center py-8">
+            <div className="w-full max-w-md">
+              <audio src={rawUrl} controls className="w-full" preload="metadata">
+                Your browser does not support the audio tag.
+              </audio>
+            </div>
+            <DownloadButton url={rawUrl} name={fileName} />
           </div>
         </AnimatedCard>
       </div>
@@ -167,21 +221,19 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
   }
 
   // PDF viewer
-  if (fileType === 'pdf') {
+  if (category === 'pdf') {
     return (
       <div className="space-y-3 lg:space-y-4">
-        <FileHeader name={data.name} type="pdf" />
+        <MediaHeader name={fileName} icon="📄" label="PDF Document" />
         <AnimatedCard>
           <div className="flex flex-col items-center">
-            {/* PDF embed for desktop */}
             <div className="hidden sm:block w-full">
               <iframe
-                src={`/api/file/${path}?raw=true`}
+                src={rawUrl}
                 className="w-full h-[70vh] rounded-lg border border-[var(--border-default)]"
-                title={data.name}
+                title={fileName}
               />
             </div>
-            {/* Mobile: download link */}
             <div className="sm:hidden flex flex-col items-center py-8">
               <div className="text-5xl mb-4">📄</div>
               <p className="text-sm text-[var(--text-secondary)] mb-4 text-center">
@@ -189,14 +241,33 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
                 Please download to view.
               </p>
             </div>
+            <DownloadButton url={rawUrl} name={fileName} />
+          </div>
+        </AnimatedCard>
+      </div>
+    );
+  }
+
+  // Binary files (download only)
+  if (category === 'binary') {
+    return (
+      <div className="space-y-3 lg:space-y-4">
+        <MediaHeader name={fileName} icon="📦" label="Binary File" />
+        <AnimatedCard>
+          <div className="flex flex-col items-center py-12">
+            <div className="text-5xl mb-4">📦</div>
+            <p className="text-sm text-[var(--text-secondary)] mb-2 text-center">
+              This file cannot be previewed.
+            </p>
+            <p className="text-xs text-[var(--text-tertiary)] mb-4">
+              {data.extension.toUpperCase()} file
+            </p>
             <a
-              href={`/api/file/${path}?raw=true`}
-              download={data.name}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
+              href={rawUrl}
+              download={fileName}
+              className="text-xs px-4 py-2 rounded bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
             >
-              Download PDF
+              Download {fileName}
             </a>
           </div>
         </AnimatedCard>
@@ -204,17 +275,16 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
     );
   }
 
-  // Markdown/MDX viewer with GitBook features
-  if (fileType === 'markdown') {
+  // Markdown viewer
+  if (category === 'markdown') {
     const hasDocFeatures = frontmatter.title || siblings.length > 0;
 
     return (
       <div className="space-y-3 lg:space-y-4 max-w-full min-w-0">
-        {/* File info bar */}
         <AnimatedCard>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{data.name}</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{fileName}</div>
               <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--text-secondary)]">
                 <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]">{data.language}</span>
                 <span className="hidden sm:inline">{data.lines} lines</span>
@@ -230,12 +300,9 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
           </div>
         </AnimatedCard>
 
-        {/* Main content area with optional TOC sidebar */}
         <div className="flex gap-6">
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <AnimatedCard>
-              {/* Doc header if frontmatter exists */}
               {hasDocFeatures && frontmatter.title && (
                 <DocHeader
                   title={frontmatter.title}
@@ -244,21 +311,16 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
                   icon={frontmatter.icon}
                 />
               )}
-
-              {/* Markdown content */}
               <MarkdownViewer
                 content={data.content}
                 onHeadingsExtracted={handleHeadingsExtracted}
               />
-
-              {/* Prev/Next navigation */}
               {siblings.length > 0 && (
                 <DocNavigation currentPath={path} siblings={siblings} />
               )}
             </AnimatedCard>
           </div>
 
-          {/* TOC sidebar - desktop only */}
           {headings.length > 2 && (
             <aside className="hidden xl:block w-48 shrink-0">
               <div className="sticky top-6">
@@ -279,7 +341,7 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
       <AnimatedCard>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">{data.name}</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">{fileName}</div>
             <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--text-secondary)]">
               <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]">{data.language}</span>
               <span className="hidden sm:inline">{data.lines} lines</span>
@@ -314,10 +376,8 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
   );
 }
 
-function FileHeader({ name, type }: { name: string; type: 'image' | 'pdf' }) {
-  const icon = type === 'image' ? '🖼️' : '📄';
-  const label = type === 'image' ? 'Image' : 'PDF Document';
-
+// Helper components
+function MediaHeader({ name, icon, label }: { name: string; icon: string; label: string }) {
   return (
     <AnimatedCard>
       <div className="flex items-center gap-3">
@@ -328,6 +388,18 @@ function FileHeader({ name, type }: { name: string; type: 'image' | 'pdf' }) {
         </div>
       </div>
     </AnimatedCard>
+  );
+}
+
+function DownloadButton({ url, name }: { url: string; name: string }) {
+  return (
+    <a
+      href={url}
+      download={name}
+      className="mt-4 text-xs px-3 py-1.5 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
+    >
+      Download
+    </a>
   );
 }
 

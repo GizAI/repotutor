@@ -75,10 +75,19 @@ export function getLanguageFromPath(filePath: string): string {
 
 // 바이너리 파일 확장자
 const BINARY_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp',
-  '.woff', '.woff2', '.ttf', '.eot',
-  '.pdf', '.zip', '.tar', '.gz',
-  '.mp3', '.mp4', '.wav', '.webm',
+  // Images
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp', '.svg', '.tiff', '.tif',
+  // Fonts
+  '.woff', '.woff2', '.ttf', '.eot', '.otf',
+  // Documents
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  // Archives
+  '.zip', '.tar', '.gz', '.rar', '.7z',
+  // Video
+  '.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v', '.ogv', '.flv', '.wmv',
+  // Audio
+  '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma',
+  // Executables
   '.exe', '.dll', '.so', '.dylib',
 ]);
 

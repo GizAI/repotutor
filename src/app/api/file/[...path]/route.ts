@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import mime from 'mime-types';
 import { readFileContent, getPathInfo } from '@/lib/files';
 import { highlightCode } from '@/lib/files/highlighter';
 import { toAbsolutePath, isInsideRepo } from '@/lib/repo-config';
@@ -17,27 +18,6 @@ export const runtime = 'nodejs';
 interface RouteParams {
   params: Promise<{ path: string[] }>;
 }
-
-// MIME types for common file extensions
-const MIME_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.bmp': 'image/bmp',
-  '.pdf': 'application/pdf',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.eot': 'application/vnd.ms-fontobject',
-};
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -64,7 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Raw file serving (for images, PDFs, etc.)
+    // Raw file serving - serves any file type
     if (isRaw) {
       const absolutePath = toAbsolutePath(relativePath);
 
@@ -76,22 +56,52 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      const ext = path.extname(relativePath).toLowerCase();
-      const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
-
-      const fileBuffer = fs.readFileSync(absolutePath);
       const fileName = path.basename(relativePath);
+      const mimeType = mime.lookup(relativePath) || 'application/octet-stream';
+      const stat = fs.statSync(absolutePath);
+      const fileSize = stat.size;
+
+      // Handle Range requests for streaming (video/audio)
+      const rangeHeader = request.headers.get('range');
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+
+        const fileStream = fs.createReadStream(absolutePath, { start, end });
+        const chunks: Buffer[] = [];
+        for await (const chunk of fileStream) {
+          chunks.push(Buffer.from(chunk));
+        }
+        const buffer = Buffer.concat(chunks);
+
+        return new NextResponse(buffer, {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(chunkSize),
+            'Content-Type': mimeType,
+          },
+        });
+      }
+
+      // Regular file serving
+      const fileBuffer = fs.readFileSync(absolutePath);
 
       return new NextResponse(fileBuffer, {
         headers: {
           'Content-Type': mimeType,
+          'Content-Length': String(fileSize),
+          'Accept-Ranges': 'bytes',
           'Content-Disposition': `inline; filename="${fileName}"`,
           'Cache-Control': 'public, max-age=31536000, immutable',
         },
       });
     }
 
-    // Text file content
+    // Text file content with optional syntax highlighting
     const fileContent = await readFileContent(relativePath);
 
     let highlightedHtml: string | undefined;

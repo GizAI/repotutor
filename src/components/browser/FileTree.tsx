@@ -211,6 +211,8 @@ function FileTreeNode({
       ref={nodeRef}
       href={`${basePath}/${entry.path}`}
       onClick={onNavigate}
+      scroll={false}
+      prefetch={true}
       className={`flex items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors active:scale-[0.98] ${
         isActive
           ? 'bg-[var(--accent)]/10 text-[var(--accent)] font-medium'
