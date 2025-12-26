@@ -8,6 +8,22 @@ export const metadata: Metadata = {
   keywords: ['RepoTutor', 'Code Explorer', 'AI', '코드 분석', '개발 가이드'],
 };
 
+// Inline script to prevent theme flash - runs before React hydration
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('repotutor-theme');
+    var theme = 'dark';
+    if (stored === 'light') {
+      theme = 'light';
+    } else if (stored === 'system') {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -15,6 +31,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>
         <ThemeProvider>
           <Background />

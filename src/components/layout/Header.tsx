@@ -4,11 +4,19 @@ import Link from 'next/link';
 import { Icon, type IconName } from '../ui/Icon';
 import { useThemeContext } from './ThemeProvider';
 import { useGlobal } from './GlobalProviders';
+import { RepoSelector } from './RepoSelector';
 import type { ThemeMode } from '@/lib/themes';
+
+interface Project {
+  id: string;
+  name: string;
+  path: string;
+}
 
 interface HeaderProps {
   onMenuClick?: () => void;
   repoName?: string;
+  currentProject?: Project | null;
 }
 
 const THEME_ICONS: Record<ThemeMode, IconName> = {
@@ -17,20 +25,24 @@ const THEME_ICONS: Record<ThemeMode, IconName> = {
   system: 'monitor',
 };
 
-export function Header({ onMenuClick, repoName = 'RepoTutor' }: HeaderProps) {
+export function Header({ onMenuClick, repoName = 'Giz Code', currentProject }: HeaderProps) {
   const { themeMode, cycleTheme, mounted } = useThemeContext();
   const { openSearch } = useGlobal();
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border-default)] bg-[var(--bg-primary)]/80 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
-            <Icon name="book" className="h-4 w-4" />
-          </div>
-          <span className="font-semibold text-[var(--text-primary)]">{repoName}</span>
-        </Link>
+        {/* Logo + RepoSelector */}
+        <div className="flex items-center gap-4">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
+              <Icon name="code" className="h-4 w-4" />
+            </div>
+            <span className="hidden sm:inline font-semibold text-[var(--text-primary)]">{repoName}</span>
+          </Link>
+          <div className="h-5 w-px bg-[var(--border-default)] hidden sm:block" />
+          <RepoSelector currentProject={currentProject} />
+        </div>
 
         {/* Right Side */}
         <div className="flex items-center gap-1">

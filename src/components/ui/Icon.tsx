@@ -1,4 +1,4 @@
-export type IconName = 'spark' | 'wires' | 'shield' | 'bolt' | 'layers' | 'code' | 'book' | 'menu' | 'close' | 'sun' | 'moon' | 'monitor' | 'arrow' | 'search' | 'folder' | 'sound' | 'chevron-down' | 'mic' | 'loader';
+export type IconName = 'spark' | 'wires' | 'shield' | 'bolt' | 'layers' | 'code' | 'book' | 'menu' | 'close' | 'sun' | 'moon' | 'monitor' | 'arrow' | 'search' | 'folder' | 'folder-code' | 'sound' | 'chevron-down' | 'mic' | 'loader' | 'check' | 'x' | 'plus' | 'arrow-left' | 'sidebar' | 'toc';
 
 interface IconProps {
   name: IconName;
@@ -147,6 +147,59 @@ export function Icon({ name, className = '' }: IconProps) {
       return (
         <svg className={className} viewBox="0 0 24 24">
           <path className={common} d="M21 12a9 9 0 11-6.219-8.56" />
+        </svg>
+      );
+    case 'folder-code':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M20 20H4a2 2 0 01-2-2V6a2 2 0 012-2h4l2 2h10a2 2 0 012 2v10a2 2 0 01-2 2z" />
+          <path className={common} d="M10 13l-2 2 2 2" />
+          <path className={common} d="M14 13l2 2-2 2" />
+        </svg>
+      );
+    case 'check':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M20 6L9 17l-5-5" />
+        </svg>
+      );
+    case 'x':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M18 6L6 18" />
+          <path className={common} d="M6 6l12 12" />
+        </svg>
+      );
+    case 'plus':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M12 5v14" />
+          <path className={common} d="M5 12h14" />
+        </svg>
+      );
+    case 'arrow-left':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M19 12H5" />
+          <path className={common} d="M12 19l-7-7 7-7" />
+        </svg>
+      );
+    case 'sidebar':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <rect className={common} x="3" y="3" width="18" height="18" rx="2" />
+          <path className={common} d="M9 3v18" />
+        </svg>
+      );
+    case 'toc':
+      return (
+        <svg className={className} viewBox="0 0 24 24">
+          <path className={common} d="M4 6h16" />
+          <path className={common} d="M4 12h10" />
+          <path className={common} d="M4 18h14" />
+          <circle className={common} cx="20" cy="6" r="1" fill="currentColor" />
+          <circle className={common} cx="17" cy="12" r="1" fill="currentColor" />
+          <circle className={common} cx="20" cy="18" r="1" fill="currentColor" />
         </svg>
       );
     default:

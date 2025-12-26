@@ -2,7 +2,8 @@
  * Authentication Middleware
  *
  * Protects all routes with simple password authentication.
- * Password is stored in REPOTUTOR_PASSWORD environment variable.
+ * Password: GIZ_CODE_PASSWORD or REPOTUTOR_PASSWORD env var
+ * Note: ~/.giz-code/config.yaml password is checked at login API level
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,7 +12,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const PUBLIC_ROUTES = [
   '/login',
   '/api/auth/login',
+  '/api/auth/check',
   '/api/health',
+  '/api/projects',
   '/_next',
   '/favicon',
 ];
@@ -24,10 +27,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if password is configured
-  const password = process.env.REPOTUTOR_PASSWORD;
+  // Check if password is configured (env var only - giz-config checked at API level)
+  const password = process.env.GIZ_CODE_PASSWORD || process.env.REPOTUTOR_PASSWORD;
   if (!password) {
-    // No password configured, allow all access
+    // No env password - allow all (giz-config password checked at API level)
     return NextResponse.next();
   }
 

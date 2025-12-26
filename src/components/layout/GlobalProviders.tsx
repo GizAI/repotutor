@@ -7,6 +7,7 @@ import { PanelRight } from 'lucide-react';
 import { SearchModal, useSearchModal } from '@/components/search';
 import { ChatBot } from '@/components/chat';
 import { TabProvider, TabBar, useTabSafe } from '@/components/navigation';
+import { SocketProvider } from '@/hooks/useSocket';
 
 // SSR-safe media query hook
 function useIsMobileSafe(): { isMobile: boolean; mounted: boolean } {
@@ -45,9 +46,11 @@ export function useGlobal() {
 
 export function GlobalProviders({ children }: { children: React.ReactNode }) {
   return (
-    <TabProvider>
-      <GlobalProvidersInner>{children}</GlobalProvidersInner>
-    </TabProvider>
+    <SocketProvider>
+      <TabProvider>
+        <GlobalProvidersInner>{children}</GlobalProvidersInner>
+      </TabProvider>
+    </SocketProvider>
   );
 }
 
@@ -56,6 +59,9 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isMobile, mounted } = useIsMobileSafe();
   const tabContext = useTabSafe();
+
+  // /browse 경로는 자체 레이아웃을 사용
+  const isBrowsePage = pathname.startsWith('/browse');
 
   // 데스크톱: 기본으로 열려있음, 모바일: 탭으로 관리
   const [isAgentOpen, setIsAgentOpen] = useState(true);
@@ -66,8 +72,10 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
 
   const isChatTabActive = tabContext?.activeTab === 'chat';
 
-  // 키보드 단축키
+  // 키보드 단축키 - /browse에서는 자체 처리하므로 스킵
   useEffect(() => {
+    if (isBrowsePage) return; // browse 페이지는 자체 단축키 사용
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -84,7 +92,7 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchModal, isMobile, tabContext]);
+  }, [searchModal, isMobile, tabContext, isBrowsePage]);
 
   return (
     <GlobalContext.Provider
@@ -107,8 +115,14 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
         isChatOpen: isMobile ? isChatTabActive ?? false : isAgentOpen,
       }}
     >
-      {/* SSR/초기 로딩: 데스크톱 레이아웃으로 통일 (hydration 일치) */}
-      {!mounted ? (
+      {/* /browse 페이지는 자체 레이아웃 사용 */}
+      {isBrowsePage ? (
+        <>
+          {children}
+          <SearchModal isOpen={searchModal.isOpen} onClose={searchModal.close} />
+        </>
+      ) : !mounted ? (
+        /* SSR/초기 로딩: 데스크톱 레이아웃으로 통일 (hydration 일치) */
         <div className="flex min-h-screen">
           <div className="flex-1 min-w-0">{children}</div>
         </div>
@@ -144,6 +158,7 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
           </AnimatePresence>
 
           <TabBar />
+          <SearchModal isOpen={searchModal.isOpen} onClose={searchModal.close} />
         </>
       ) : (
         /* 데스크톱: 분리 레이아웃 */
@@ -186,10 +201,10 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
               <span className="text-sm font-medium">AI 에이전트</span>
             </button>
           )}
+
+          <SearchModal isOpen={searchModal.isOpen} onClose={searchModal.close} />
         </div>
       )}
-
-      <SearchModal isOpen={searchModal.isOpen} onClose={searchModal.close} />
     </GlobalContext.Provider>
   );
 }

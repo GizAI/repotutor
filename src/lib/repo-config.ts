@@ -1,12 +1,13 @@
 /**
  * Repository Configuration
  *
- * RepoTutor는 특정 리포지토리에 하드코딩되지 않습니다.
- * 환경 변수나 런타임에 리포지토리 경로를 설정할 수 있습니다.
+ * Giz Code는 특정 리포지토리에 하드코딩되지 않습니다.
+ * ~/.giz-code에서 프로젝트를 관리하거나, 환경 변수로 설정할 수 있습니다.
  */
 
 import path from 'path';
 import fs from 'fs';
+import { getCurrentProjectPath, getCurrentProject, type Project } from './giz-config';
 
 export interface RepoConfig {
   /** 리포지토리 루트 경로 (절대 경로) */
@@ -68,16 +69,27 @@ export function getGitignorePatterns(): string[] {
   return _gitignorePatterns;
 }
 
-// 환경 변수에서 리포지토리 경로 가져오기
+// 프로젝트 경로 가져오기 (giz-config 우선, 환경 변수 fallback)
 function getRepoPathFromEnv(): string {
+  // 1. ~/.giz-code/projects.yaml에서 현재 프로젝트
+  const gizPath = getCurrentProjectPath();
+  if (gizPath) {
+    return path.resolve(gizPath);
+  }
+
+  // 2. 환경 변수 fallback
   const envPath = process.env.REPO_PATH || process.env.REPOTUTOR_PATH;
   if (envPath) {
     return path.resolve(envPath);
   }
 
-  // 기본값: docs/site의 상위 디렉토리 (reson 리포지토리 루트)
-  // 실제 배포 시에는 환경 변수로 설정해야 함
+  // 3. 기본값
   return path.resolve(process.cwd(), '../..');
+}
+
+// 현재 프로젝트 정보 export (Header 등에서 사용)
+export function getActiveProject(): Project | null {
+  return getCurrentProject();
 }
 
 // 리포지토리 이름과 설명 추출
@@ -138,6 +150,12 @@ export function getRepoConfig(): RepoConfig {
 export function setRepoConfig(config: Partial<RepoConfig>): void {
   const current = getRepoConfig();
   _config = { ...current, ...config };
+}
+
+// 캐시 무효화 (프로젝트 전환 시)
+export function invalidateCache(): void {
+  _config = null;
+  _gitignorePatterns = null;
 }
 
 // 패턴 매칭 헬퍼

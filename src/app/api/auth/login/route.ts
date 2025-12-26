@@ -2,15 +2,19 @@
  * Login API
  *
  * Sets authentication cookie on successful password verification.
+ * Password: ~/.giz-code/config.yaml > REPOTUTOR_PASSWORD env var
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getPassword } from '@/lib/giz-config';
 
 export async function POST(request: NextRequest) {
-  const password = process.env.REPOTUTOR_PASSWORD;
+  const password = getPassword();
 
   if (!password) {
-    return NextResponse.json({ error: 'No password configured' }, { status: 500 });
+    // No password = allow all access
+    const response = NextResponse.json({ success: true, noPassword: true });
+    return response;
   }
 
   try {

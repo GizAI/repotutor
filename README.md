@@ -1,8 +1,8 @@
-# RepoTutor
+# Giz Code
 
 <div align="center">
 
-![RepoTutor](https://img.shields.io/badge/RepoTutor-AI%20Docs-00FF00?style=for-the-badge&logo=bookstack&logoColor=white)
+![Giz Code](https://img.shields.io/badge/Giz%20Code-AI%20Docs-00FF00?style=for-the-badge&logo=bookstack&logoColor=white)
 
 **AI-powered interactive documentation and learning platform for any codebase**
 
@@ -10,15 +10,15 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
 
-[Demo](https://repotutor.dev) · [Documentation](https://github.com/GizAI/repotutor/wiki) · [Report Bug](https://github.com/GizAI/repotutor/issues)
+[Demo](https://code.giz.ai) · [Documentation](https://github.com/GizAI/code/wiki) · [Report Bug](https://github.com/GizAI/code/issues)
 
 </div>
 
 ---
 
-## What is RepoTutor?
+## What is Giz Code?
 
-RepoTutor transforms any code repository into a beautiful, interactive learning experience. Just point it at your codebase, and it automatically:
+Giz Code transforms any code repository into a beautiful, interactive learning experience. Just point it at your codebase, and it automatically:
 
 - **Analyzes** your code structure with AI
 - **Generates** comprehensive documentation
@@ -55,16 +55,16 @@ Perfect for onboarding new developers, creating internal docs, or open-source pr
 ### Option 1: npx (Recommended)
 
 ```bash
-npx repotutor init
-npx repotutor dev
+npx giz-code init
+npx giz-code dev
 ```
 
 ### Option 2: Clone & Install
 
 ```bash
 # Clone the repository
-git clone https://github.com/GizAI/repotutor.git
-cd repotutor
+git clone https://github.com/GizAI/code.git
+cd code
 
 # Install dependencies
 npm install
@@ -78,7 +78,7 @@ Open [http://localhost:3000](http://localhost:3000) to see your documentation.
 ## Project Structure
 
 ```
-repotutor/
+giz-code/
 ├── content/           # Your MDX documentation files
 │   ├── 00-getting-started.mdx
 │   ├── 01-architecture.mdx
@@ -146,7 +146,7 @@ flowchart LR
 
 ## Mermaid Diagrams
 
-RepoTutor automatically renders Mermaid diagrams from code blocks:
+Giz Code automatically renders Mermaid diagrams from code blocks:
 
 ````markdown
 ```mermaid
@@ -169,7 +169,7 @@ Supported diagram types:
 
 ## Themes
 
-RepoTutor includes two stunning themes:
+Giz Code includes two stunning themes:
 
 ### Noir (Dark)
 - Deep blacks with lime accents
@@ -206,7 +206,7 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.com
 
 ### Vercel (Recommended)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/GizAI/repotutor)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/GizAI/code)
 
 ### Other Platforms
 

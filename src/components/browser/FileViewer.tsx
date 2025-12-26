@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { AnimatedCard } from '@/components/ui';
+import { AnimatedCard, Icon } from '@/components/ui';
 import { MarkdownViewer, parseFrontmatter, type HeadingItem, type DocFrontmatter } from './MarkdownViewer';
 import { DocNavigation, DocHeader, TableOfContents, type DocLink } from './DocNavigation';
 import { useThemeContext } from '@/components/layout/ThemeProvider';
@@ -277,61 +277,21 @@ export function FileViewer({ path, siblings = [] }: FileViewerProps) {
 
   // Markdown viewer
   if (category === 'markdown') {
-    const hasDocFeatures = frontmatter.title || siblings.length > 0;
+    const hasDocFeatures = !!(frontmatter.title || siblings.length > 0);
 
     return (
-      <div className="space-y-3 lg:space-y-4 max-w-full min-w-0">
-        <AnimatedCard>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{fileName}</div>
-              <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--text-secondary)]">
-                <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]">{data.language}</span>
-                <span className="hidden sm:inline">{data.lines} lines</span>
-                <span>{formatSize(data.size)}</span>
-              </div>
-            </div>
-            <button
-              onClick={handleCopy}
-              className="self-start sm:self-auto text-[10px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
-            >
-              {copied ? 'Copied!' : 'Copy Raw'}
-            </button>
-          </div>
-        </AnimatedCard>
-
-        <div className="flex gap-6">
-          <div className="flex-1 min-w-0">
-            <AnimatedCard>
-              {hasDocFeatures && frontmatter.title && (
-                <DocHeader
-                  title={frontmatter.title}
-                  description={frontmatter.description}
-                  category={frontmatter.category}
-                  icon={frontmatter.icon}
-                />
-              )}
-              <MarkdownViewer
-                content={data.content}
-                onHeadingsExtracted={handleHeadingsExtracted}
-              />
-              {siblings.length > 0 && (
-                <DocNavigation currentPath={path} siblings={siblings} />
-              )}
-            </AnimatedCard>
-          </div>
-
-          {headings.length > 2 && (
-            <aside className="hidden xl:block w-48 shrink-0">
-              <div className="sticky top-6">
-                <AnimatedCard>
-                  <TableOfContents headings={headings} />
-                </AnimatedCard>
-              </div>
-            </aside>
-          )}
-        </div>
-      </div>
+      <MarkdownLayout
+        fileName={fileName}
+        data={data}
+        copied={copied}
+        onCopy={handleCopy}
+        headings={headings}
+        onHeadingsExtracted={handleHeadingsExtracted}
+        frontmatter={frontmatter}
+        hasDocFeatures={hasDocFeatures}
+        siblings={siblings}
+        path={path}
+      />
     );
   }
 
@@ -432,4 +392,156 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// Markdown Layout with collapsible sticky TOC
+interface MarkdownLayoutProps {
+  fileName: string;
+  data: {
+    language: string;
+    lines: number;
+    size: number;
+    content: string;
+  };
+  copied: boolean;
+  onCopy: () => void;
+  headings: HeadingItem[];
+  onHeadingsExtracted: (headings: HeadingItem[]) => void;
+  frontmatter: DocFrontmatter;
+  hasDocFeatures: boolean;
+  siblings: DocLink[];
+  path: string;
+}
+
+function MarkdownLayout({
+  fileName,
+  data,
+  copied,
+  onCopy,
+  headings,
+  onHeadingsExtracted,
+  frontmatter,
+  hasDocFeatures,
+  siblings,
+  path,
+}: MarkdownLayoutProps) {
+  const [isTocCollapsed, setIsTocCollapsed] = useState(false);
+  const hasToc = headings.length > 2;
+
+  // Load TOC collapsed state from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('toc-collapsed');
+    if (stored !== null) {
+      setIsTocCollapsed(stored === 'true');
+    }
+  }, []);
+
+  const toggleToc = useCallback(() => {
+    setIsTocCollapsed(prev => {
+      const newValue = !prev;
+      localStorage.setItem('toc-collapsed', String(newValue));
+      return newValue;
+    });
+  }, []);
+
+  return (
+    <div className="space-y-3 lg:space-y-4 max-w-full min-w-0">
+      {/* Header bar */}
+      <AnimatedCard>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{fileName}</div>
+            <div className="flex items-center gap-2 text-[9px] lg:text-[10px] text-[var(--text-secondary)]">
+              <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]">{data.language}</span>
+              <span className="hidden sm:inline">{data.lines} lines</span>
+              <span>{formatSize(data.size)}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* TOC Toggle Button - only show on screens where TOC is visible */}
+            {hasToc && (
+              <button
+                onClick={toggleToc}
+                className="hidden lg:flex items-center gap-1.5 text-[10px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
+                title={isTocCollapsed ? 'Show table of contents' : 'Hide table of contents'}
+              >
+                <Icon name="toc" className="h-3 w-3" />
+                <span>{isTocCollapsed ? 'Show TOC' : 'Hide TOC'}</span>
+              </button>
+            )}
+            <button
+              onClick={onCopy}
+              className="self-start sm:self-auto text-[10px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy Raw'}
+            </button>
+          </div>
+        </div>
+      </AnimatedCard>
+
+      <div className="flex gap-6">
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <AnimatedCard>
+            {hasDocFeatures && frontmatter.title && (
+              <DocHeader
+                title={frontmatter.title}
+                description={frontmatter.description}
+                category={frontmatter.category}
+                icon={frontmatter.icon}
+              />
+            )}
+            <MarkdownViewer
+              content={data.content}
+              onHeadingsExtracted={onHeadingsExtracted}
+            />
+            {siblings.length > 0 && (
+              <DocNavigation currentPath={path} siblings={siblings} />
+            )}
+          </AnimatedCard>
+        </div>
+
+        {/* Sticky collapsible TOC */}
+        {hasToc && !isTocCollapsed && (
+          <aside className="hidden lg:block w-48 shrink-0">
+            <div className="sticky top-4">
+              <AnimatedCard>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Contents
+                  </h4>
+                  <button
+                    onClick={toggleToc}
+                    className="flex items-center justify-center w-5 h-5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
+                    title="Hide table of contents"
+                  >
+                    <Icon name="close" className="h-3 w-3" />
+                  </button>
+                </div>
+                <TableOfContents headings={headings} />
+              </AnimatedCard>
+            </div>
+          </aside>
+        )}
+
+        {/* Collapsed TOC indicator - vertical bar on the right edge */}
+        {hasToc && isTocCollapsed && (
+          <button
+            onClick={toggleToc}
+            className="hidden lg:flex fixed right-4 top-1/2 -translate-y-1/2 z-30
+              flex-col items-center justify-center
+              w-8 py-4 rounded-lg
+              bg-[var(--bg-secondary)] border border-[var(--border-default)]
+              text-[var(--text-tertiary)] hover:text-[var(--text-primary)]
+              hover:bg-[var(--hover-bg)] hover:border-[var(--border-strong)]
+              transition-all shadow-lg"
+            title="Show table of contents"
+          >
+            <Icon name="toc" className="h-4 w-4 mb-1" />
+            <span className="text-[9px] font-medium" style={{ writingMode: 'vertical-rl' }}>TOC</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
