@@ -1,184 +1,150 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FileTree, FileViewer, BreadcrumbNav } from '@/components/browser';
+import { usePathname } from 'next/navigation';
+import { FileViewer } from '@/components/browser';
 import { Card } from '@/components/ui';
-import { Icon, type IconName } from '@/components/ui/Icon';
-import { useGlobal } from '@/components/layout';
-import { useThemeContext } from '@/components/layout/ThemeProvider';
-import type { ThemeMode } from '@/lib/themes';
-import type { FileEntry, FileTree as FileTreeType, DocSibling } from '@/lib/files/reader';
+import { Icon } from '@/components/ui/Icon';
+import { useBrowseContext } from '../BrowseContext';
+import type { FileTree as FileTreeType } from '@/lib/files/reader';
 
 interface BrowsePageClientProps {
   repoName: string;
-  currentPath: string;
-  pathInfo: FileEntry | null;
-  entries: FileTreeType[] | null;
-  siblings?: DocSibling[];
 }
 
-const THEME_ICONS: Record<ThemeMode, IconName> = {
-  dark: 'moon',
-  light: 'sun',
-  system: 'monitor',
-};
+interface FileEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size?: number;
+  extension?: string;
+}
 
-export function BrowsePageClient({
-  repoName,
-  currentPath,
-  pathInfo,
-  entries,
-  siblings = [],
-}: BrowsePageClientProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { openSearch } = useGlobal();
-  const { themeMode, cycleTheme, mounted } = useThemeContext();
+interface DocSibling {
+  path: string;
+  title: string;
+  order?: number;
+}
+
+export function BrowsePageClient({ repoName }: BrowsePageClientProps) {
+  const pathname = usePathname();
+  const { entries } = useBrowseContext();
+  const [pathInfo, setPathInfo] = useState<FileEntry | null>(null);
+  const [siblings, setSiblings] = useState<DocSibling[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // URL에서 현재 경로 추출
+  const currentPath = useMemo(() => {
+    if (pathname.startsWith('/browse/')) {
+      return decodeURIComponent(pathname.slice(8));
+    }
+    return '';
+  }, [pathname]);
+
   const isFile = pathInfo?.type === 'file';
   const isDirectory = !pathInfo || pathInfo.type === 'directory';
 
-  return (
-    <div className="flex flex-col min-h-screen bg-[var(--bg-primary)]">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 border-b border-[var(--border-default)] bg-[var(--bg-primary)]/80 backdrop-blur-xl">
-        <div className="flex h-12 items-center justify-between px-4">
-          {/* Left: Mobile Menu + Logo */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden flex items-center justify-center h-8 w-8 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-              aria-label="Open menu"
-            >
-              <Icon name="menu" className="h-5 w-5" />
-            </button>
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
-            >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
-                <Icon name="book" className="h-3.5 w-3.5" />
-              </div>
-              <span className="font-semibold text-sm hidden sm:inline">{repoName}</span>
-            </Link>
-          </div>
+  // 경로 변경 시 pathInfo와 siblings 업데이트
+  useEffect(() => {
+    if (!currentPath) {
+      setPathInfo(null);
+      setSiblings([]);
+      setLoading(false);
+      return;
+    }
 
-          {/* Center: Search */}
-          <button
-            onClick={openSearch}
-            className="flex items-center gap-2 px-3 py-1.5 mx-4 flex-1 max-w-md text-left text-sm text-[var(--text-secondary)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border-default)] rounded-lg transition-colors"
-          >
-            <Icon name="search" className="h-4 w-4 text-[var(--text-tertiary)]" />
-            <span className="flex-1 hidden sm:inline">Search files...</span>
-            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-[var(--bg-primary)] text-[var(--text-tertiary)] rounded border border-[var(--border-default)]">
-              ⌘K
-            </kbd>
-          </button>
+    setLoading(true);
 
-          {/* Right: Theme */}
-          <button
-            onClick={cycleTheme}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-            title={`테마: ${themeMode}`}
-          >
-            {mounted ? (
-              <Icon name={THEME_ICONS[themeMode]} className="h-4 w-4" />
-            ) : (
-              <div className="h-4 w-4" />
-            )}
-          </button>
+    // pathInfo 가져오기 - 확장자가 있으면 파일로 간주
+    const hasExtension = currentPath.includes('.') && currentPath.split('.').pop()!.length <= 5;
+
+    if (hasExtension) {
+      // 파일로 간주
+      setPathInfo({
+        name: currentPath.split('/').pop() || currentPath,
+        path: currentPath,
+        type: 'file',
+        extension: currentPath.split('.').pop(),
+      });
+      setLoading(false);
+    } else {
+      // 디렉토리 확인
+      fetch(`/api/files/?path=${encodeURIComponent(currentPath)}`, { credentials: 'include' })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.pathInfo) {
+            setPathInfo(data.pathInfo);
+          } else {
+            // 파일일 수 있음
+            setPathInfo({
+              name: currentPath.split('/').pop() || currentPath,
+              path: currentPath,
+              type: 'file',
+              extension: currentPath.split('.').pop(),
+            });
+          }
+        })
+        .catch(() => {
+          setPathInfo({
+            name: currentPath.split('/').pop() || currentPath,
+            path: currentPath,
+            type: 'file',
+            extension: currentPath.split('.').pop(),
+          });
+        })
+        .finally(() => setLoading(false));
+    }
+
+    // 마크다운 파일이면 siblings 로드
+    const ext = currentPath.split('.').pop()?.toLowerCase();
+    if (ext && ['md', 'mdx', 'markdown'].includes(ext)) {
+      fetch(`/api/files/siblings/?path=${encodeURIComponent(currentPath)}`, { credentials: 'include' })
+        .then(res => res.ok ? res.json() : { siblings: [] })
+        .then(data => setSiblings(data.siblings || []))
+        .catch(() => setSiblings([]));
+    } else {
+      setSiblings([]);
+    }
+  }, [currentPath]);
+
+  // Content rendering
+  if (loading) {
+    return (
+      <Card padding="lg">
+        <div className="flex items-center justify-center py-12 lg:py-20">
+          <div className="text-sm text-[var(--text-secondary)]">Loading...</div>
         </div>
-      </header>
+      </Card>
+    );
+  }
 
-      <div className="flex flex-1">
-        {/* Mobile Overlay */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-        </AnimatePresence>
+  if (isFile && currentPath) {
+    return <FileViewer path={currentPath} siblings={siblings} />;
+  }
 
-        {/* Sidebar - File Tree */}
-        <aside
-          className={`
-            w-72 lg:w-64 shrink-0 border-r border-[var(--border-default)] bg-[var(--bg-primary)] overflow-y-auto
-            fixed top-0 left-0 h-screen z-50
-            transform transition-transform duration-200 ease-out
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            lg:translate-x-0 lg:top-12 lg:z-30
-            lg:h-[calc(100vh-3rem)]
-          `}
+  if (isDirectory) {
+    return <DirectoryView entries={entries} currentPath={currentPath} repoName={repoName} />;
+  }
+
+  return (
+    <Card padding="lg">
+      <div className="flex flex-col items-center justify-center py-12 lg:py-20 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-tertiary)] mb-4">
+          <Icon name="folder" className="h-6 w-6 text-[var(--text-tertiary)]" />
+        </div>
+        <div className="text-body-lg font-medium text-[var(--text-primary)]">Path not found</div>
+        <div className="text-caption text-[var(--text-secondary)] mt-2">
+          The requested path does not exist.
+        </div>
+        <Link
+          href="/browse"
+          className="mt-4 text-sm text-[var(--accent)] hover:underline"
         >
-          <div className="p-4 border-b border-[var(--border-default)] flex items-center justify-between lg:hidden">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <Icon name="arrow" className="h-4 w-4 rotate-180" />
-              <span className="font-medium text-sm">{repoName}</span>
-            </Link>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="flex items-center justify-center h-8 w-8 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-              aria-label="Close menu"
-            >
-              <Icon name="close" className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="p-2">
-            {entries && entries.length > 0 ? (
-              <FileTree entries={entries} onNavigate={() => setSidebarOpen(false)} />
-            ) : (
-              <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">
-                No files found
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 lg:ml-64 p-4 lg:p-6 min-w-0 max-w-full overflow-x-hidden">
-          {/* Breadcrumb */}
-          <div className="mb-4 lg:mb-6 overflow-x-auto max-w-full">
-            <BreadcrumbNav path={currentPath} repoName={repoName} />
-          </div>
-
-          {/* Content */}
-          {isFile && currentPath ? (
-            <FileViewer path={currentPath} siblings={siblings} />
-          ) : isDirectory ? (
-            <DirectoryView entries={entries} currentPath={currentPath} repoName={repoName} />
-          ) : (
-            <Card padding="lg">
-              <div className="flex flex-col items-center justify-center py-12 lg:py-20 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-tertiary)] mb-4">
-                  <Icon name="folder" className="h-6 w-6 text-[var(--text-tertiary)]" />
-                </div>
-                <div className="text-body-lg font-medium text-[var(--text-primary)]">Path not found</div>
-                <div className="text-caption text-[var(--text-secondary)] mt-2">
-                  The requested path does not exist.
-                </div>
-                <Link
-                  href="/browse"
-                  className="mt-4 text-sm text-[var(--accent)] hover:underline"
-                >
-                  Go to root
-                </Link>
-              </div>
-            </Card>
-          )}
-        </main>
+          Go to root
+        </Link>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -242,6 +208,7 @@ function DirectoryView({ entries, currentPath, repoName }: DirectoryViewProps) {
             <Link
               key={entry.path}
               href={`/browse/${entry.path}`}
+              scroll={false}
               className="flex items-center gap-3 p-3 rounded-lg border border-[var(--border-default)] hover:border-[var(--border-strong)] hover:bg-[var(--hover-bg)] transition-all"
             >
               {entry.type === 'directory' ? (
