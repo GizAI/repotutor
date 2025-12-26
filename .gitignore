@@ -42,3 +42,4 @@ coverage/
 *.log
 .cache/
 .repotutor-agent
+.next-dev
