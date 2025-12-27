@@ -51599,32 +51599,6 @@ function checkVnc() {
     });
   });
 }
-function isX11Running(display) {
-  try {
-    (0, import_child_process2.execSync)(`xdpyinfo -display ${display} >/dev/null 2>&1`, { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function installX11vnc() {
-  try {
-    (0, import_child_process2.execSync)("which x11vnc", { stdio: "ignore" });
-    return true;
-  } catch {
-    console.log("[VNC] x11vnc not found, attempting install...");
-    try {
-      (0, import_child_process2.execSync)("sudo apt-get update && sudo apt-get install -y x11vnc", {
-        stdio: "inherit",
-        timeout: 12e4
-      });
-      return true;
-    } catch (e) {
-      console.error("[VNC] Failed to install x11vnc:", e.message);
-      return false;
-    }
-  }
-}
 function installTigerVnc() {
   try {
     (0, import_child_process2.execSync)("which tigervncserver", { stdio: "ignore" });
@@ -51652,37 +51626,8 @@ async function startVnc() {
   }
   vncStarting = true;
   try {
-    const x11Running = isX11Running(VNC_DISPLAY);
-    console.log(`[VNC] X11 on ${VNC_DISPLAY}: ${x11Running ? "running" : "not running"}`);
-    if (x11Running) {
-      console.log(`[VNC] Using x11vnc to expose existing X11 on ${VNC_DISPLAY}...`);
-      if (!installX11vnc()) {
-        vncStarting = false;
-        return { success: false, message: "Failed to install x11vnc" };
-      }
-      try {
-        (0, import_child_process2.execSync)('pkill -f "x11vnc.*:5999" 2>/dev/null || true');
-      } catch {
-      }
-      vncProcess = (0, import_child_process2.spawn)("x11vnc", [
-        "-display",
-        VNC_DISPLAY,
-        "-rfbport",
-        VNC_PORT.toString(),
-        "-localhost",
-        "-shared",
-        "-forever",
-        "-nopw",
-        "-noxdamage",
-        "-repeat",
-        "-bg"
-      ], {
-        stdio: "inherit",
-        detached: true
-      });
-      vncProcess.unref();
-    } else {
-      console.log(`[VNC] Starting tigervncserver on display ${VNC_DISPLAY}...`);
+    {
+      console.log(`[VNC] Starting Xvnc on display ${VNC_DISPLAY}...`);
       if (!installTigerVnc()) {
         vncStarting = false;
         return { success: false, message: "Failed to install TigerVNC" };
@@ -51708,24 +51653,39 @@ EOF`);
       }
       try {
         (0, import_child_process2.execSync)(`vncserver -kill ${VNC_DISPLAY} 2>/dev/null || true`);
+        (0, import_child_process2.execSync)(`pkill -f "Xvnc.*${VNC_DISPLAY}" 2>/dev/null || true`);
       } catch {
       }
-      vncProcess = (0, import_child_process2.spawn)("tigervncserver", [
+      const displayNum = VNC_DISPLAY.replace(":", "");
+      const rfbPort = 5900 + parseInt(displayNum);
+      vncProcess = (0, import_child_process2.spawn)("Xvnc", [
         VNC_DISPLAY,
-        "-xstartup",
-        xstartup,
+        "-rfbport",
+        rfbPort.toString(),
         "-SecurityTypes",
         "None",
         "-AlwaysShared",
+        "-AcceptSetDesktopSize",
         "-localhost",
-        "yes",
-        "-AcceptSetDesktopSize=1",
-        "--I-KNOW-THIS-IS-INSECURE"
+        "-geometry",
+        "1280x720",
+        "-depth",
+        "24",
+        "-randr",
+        "1920x1080,1680x1050,1440x900,1280x1024,1280x800,1280x720,1024x768,800x600"
       ], {
         stdio: "inherit",
         detached: true
       });
       vncProcess.unref();
+      setTimeout(() => {
+        const startupProcess = (0, import_child_process2.spawn)("bash", [xstartup], {
+          env: { ...process.env, DISPLAY: VNC_DISPLAY },
+          stdio: "inherit",
+          detached: true
+        });
+        startupProcess.unref();
+      }, 1e3);
     }
     for (let i = 0; i < 30; i++) {
       await new Promise((r) => setTimeout(r, 500));

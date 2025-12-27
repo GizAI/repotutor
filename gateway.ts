@@ -148,44 +148,11 @@ async function startVnc(): Promise<{ success: boolean; message: string }> {
   vncStarting = true;
 
   try {
-    // Check if X11 is already running on the display
-    const x11Running = isX11Running(VNC_DISPLAY);
-    console.log(`[VNC] X11 on ${VNC_DISPLAY}: ${x11Running ? 'running' : 'not running'}`);
-
-    if (x11Running) {
-      // Use x11vnc to expose existing X11 session
-      console.log(`[VNC] Using x11vnc to expose existing X11 on ${VNC_DISPLAY}...`);
-
-      if (!installX11vnc()) {
-        vncStarting = false;
-        return { success: false, message: 'Failed to install x11vnc' };
-      }
-
-      // Kill any existing x11vnc
-      try {
-        execSync('pkill -f "x11vnc.*:5999" 2>/dev/null || true');
-      } catch {}
-
-      // Start x11vnc
-      vncProcess = spawn('x11vnc', [
-        '-display', VNC_DISPLAY,
-        '-rfbport', VNC_PORT.toString(),
-        '-localhost',
-        '-shared',
-        '-forever',
-        '-nopw',
-        '-noxdamage',
-        '-repeat',
-        '-bg',
-      ], {
-        stdio: 'inherit',
-        detached: true,
-      });
-
-      vncProcess.unref();
-    } else {
-      // No X11 running, use tigervncserver
-      console.log(`[VNC] Starting tigervncserver on display ${VNC_DISPLAY}...`);
+    // Always use Xvnc for better dynamic resize support
+    // Even if X11 is running, we start a separate Xvnc session
+    {
+      // No X11 running, use Xvnc directly for better dynamic resize support
+      console.log(`[VNC] Starting Xvnc on display ${VNC_DISPLAY}...`);
 
       if (!installTigerVnc()) {
         vncStarting = false;
@@ -217,23 +184,40 @@ EOF`);
       // Kill existing session
       try {
         execSync(`vncserver -kill ${VNC_DISPLAY} 2>/dev/null || true`);
+        execSync(`pkill -f "Xvnc.*${VNC_DISPLAY}" 2>/dev/null || true`);
       } catch {}
 
-      // Start VNC server
-      vncProcess = spawn('tigervncserver', [
+      // Extract display number (e.g., :99 -> 99)
+      const displayNum = VNC_DISPLAY.replace(':', '');
+      const rfbPort = 5900 + parseInt(displayNum);
+
+      // Start Xvnc directly with RandR support for dynamic resize
+      vncProcess = spawn('Xvnc', [
         VNC_DISPLAY,
-        '-xstartup', xstartup,
+        '-rfbport', rfbPort.toString(),
         '-SecurityTypes', 'None',
         '-AlwaysShared',
-        '-localhost', 'yes',
-        '-AcceptSetDesktopSize=1',
-        '--I-KNOW-THIS-IS-INSECURE',
+        '-AcceptSetDesktopSize',
+        '-localhost',
+        '-geometry', '1280x720',
+        '-depth', '24',
+        '-randr', '1920x1080,1680x1050,1440x900,1280x1024,1280x800,1280x720,1024x768,800x600',
       ], {
         stdio: 'inherit',
         detached: true,
       });
 
       vncProcess.unref();
+
+      // Wait a bit for Xvnc to start, then run xstartup
+      setTimeout(() => {
+        const startupProcess = spawn('bash', [xstartup], {
+          env: { ...process.env, DISPLAY: VNC_DISPLAY },
+          stdio: 'inherit',
+          detached: true,
+        });
+        startupProcess.unref();
+      }, 1000);
     }
 
     // Wait for VNC to be ready
