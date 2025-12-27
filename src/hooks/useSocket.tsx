@@ -27,9 +27,11 @@ export function SocketProvider({ children, url }: { children: ReactNode; url?: s
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    const wsUrl = url || process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:6002';
+    // Same origin - unified server handles both HTTP and WebSocket
+    const wsUrl = url || (typeof window !== 'undefined' ? window.location.origin : '');
 
     const socket = io(wsUrl, {
+      path: '/socket.io',
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,

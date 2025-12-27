@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, lazy, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PanelRight } from 'lucide-react';
@@ -8,6 +8,10 @@ import { SearchModal, useSearchModal } from '@/components/search';
 import { ChatBot } from '@/components/chat';
 import { TabProvider, TabBar, useTabSafe } from '@/components/navigation';
 import { SocketProvider } from '@/hooks/useSocket';
+
+// Lazy load terminal components
+const WebTerminal = lazy(() => import('@/components/terminal/WebTerminal').then(m => ({ default: m.WebTerminal })));
+const DesktopViewer = lazy(() => import('@/components/terminal/DesktopViewer').then(m => ({ default: m.DesktopViewer })));
 
 // SSR-safe media query hook
 function useIsMobileSafe(): { isMobile: boolean; mounted: boolean } {
@@ -71,6 +75,8 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
     : undefined;
 
   const isChatTabActive = tabContext?.activeTab === 'chat';
+  const isTerminalTabActive = tabContext?.activeTab === 'terminal';
+  const isDesktopTabActive = tabContext?.activeTab === 'desktop';
 
   // 키보드 단축키 - /browse에서는 자체 처리하므로 스킵
   useEffect(() => {
@@ -153,6 +159,36 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
                   currentPath={currentPath}
                   fullScreen
                 />
+              </motion.div>
+            )}
+            {isTerminalTabActive && (
+              <motion.div
+                key="terminal-tab"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-50 bg-[var(--bg-primary)]"
+                style={{ paddingBottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
+              >
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
+                  <WebTerminal className="h-full" />
+                </Suspense>
+              </motion.div>
+            )}
+            {isDesktopTabActive && (
+              <motion.div
+                key="desktop-tab"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-50 bg-[var(--bg-primary)]"
+                style={{ paddingBottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
+              >
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
+                  <DesktopViewer className="h-full" />
+                </Suspense>
               </motion.div>
             )}
           </AnimatePresence>

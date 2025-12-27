@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
-export type TabType = 'browse' | 'chat';
+export type TabType = 'browse' | 'chat' | 'terminal' | 'desktop';
 
 interface TabState {
   activeTab: TabType;

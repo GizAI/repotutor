@@ -1,13 +1,15 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Folder, MessageSquare } from 'lucide-react';
+import { Folder, MessageSquare, TerminalSquare, Monitor } from 'lucide-react';
 import { useTab, TabType } from './TabContext';
 import { useIsKeyboardOpen } from '@/hooks/useMediaQuery';
 
 const tabs: { id: TabType; icon: typeof Folder; label: string }[] = [
   { id: 'browse', icon: Folder, label: '탐색' },
-  { id: 'chat', icon: MessageSquare, label: 'AI 에이전트' },
+  { id: 'chat', icon: MessageSquare, label: 'AI' },
+  { id: 'terminal', icon: TerminalSquare, label: '터미널' },
+  { id: 'desktop', icon: Monitor, label: '데스크톱' },
 ];
 
 export function TabBar() {
