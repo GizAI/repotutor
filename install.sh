@@ -214,7 +214,16 @@ install_code() {
 install_deps() {
     log "Installing dependencies..."
     cd "$INSTALL_DIR"
-    npm install --legacy-peer-deps 2>&1 | tail -5
+
+    if ! npm install --legacy-peer-deps 2>&1; then
+        warn "Some optional dependencies failed, continuing..."
+    fi
+
+    # Verify critical deps
+    if [ ! -f "node_modules/.bin/next" ]; then
+        error "Failed to install dependencies"
+    fi
+
     success "Dependencies installed"
 }
 
@@ -248,7 +257,17 @@ build_app() {
 
     log "Building application..."
     cd "$INSTALL_DIR"
-    npm run build 2>&1 | tail -10
+
+    # Build with Next.js
+    if ! ./node_modules/.bin/next build 2>&1; then
+        error "Build failed"
+    fi
+
+    # Verify build output
+    if [ ! -d ".next" ]; then
+        error "Build output not found"
+    fi
+
     success "Build complete"
 }
 
@@ -264,11 +283,31 @@ setup_pm2() {
     pm2 delete "$PM2_NAME" 2>/dev/null || true
     pm2 delete "${PM2_NAME}-gateway" 2>/dev/null || true
 
-    # Start Next.js
-    PORT=$PORT pm2 start npm --name "$PM2_NAME" -- start
+    # Create ecosystem file for proper startup
+    cat > ecosystem.config.js << PMEOF
+module.exports = {
+  apps: [
+    {
+      name: '$PM2_NAME',
+      script: 'node_modules/.bin/next',
+      args: 'start -p $PORT',
+      cwd: '$INSTALL_DIR',
+      env: { NODE_ENV: 'production', PORT: '$PORT' }
+    },
+    {
+      name: '${PM2_NAME}-gateway',
+      script: 'gateway.ts',
+      interpreter: 'node',
+      interpreter_args: '--import tsx',
+      cwd: '$INSTALL_DIR',
+      env: { NODE_ENV: 'production' }
+    }
+  ]
+};
+PMEOF
 
-    # Start Gateway
-    pm2 start node --name "${PM2_NAME}-gateway" -- --import tsx gateway.ts
+    # Start with ecosystem
+    pm2 start ecosystem.config.js
 
     # Save PM2 config
     pm2 save
