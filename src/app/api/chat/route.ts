@@ -201,16 +201,27 @@ ${config.description ? `설명: ${config.description}` : ''}
 `,
       },
 
-      // Full tool access (MCP auto-detected from .mcp.json in cwd)
+      // Full tool access with MCP servers
       tools: { type: 'preset', preset: 'claude_code' },
+
+      // MCP servers for browser automation (Chrome auto-launched on VNC display)
+      mcpServers: {
+        'chrome-devtools': {
+          command: 'npx',
+          args: ['chrome-devtools-mcp@latest'],
+          env: {
+            DISPLAY: process.env.VNC_DISPLAY || ':4',
+          },
+        },
+      },
 
       // Limits (with overrides)
       maxTurns: maxTurns ?? 30,
       maxBudgetUsd: maxBudget ?? 1.0,
       enableFileCheckpointing: true,
 
-      // Permission mode - allow edits without prompts for repo browsing
-      permissionMode: 'default',
+      // Permission mode - bypass prompts for all tools including MCP
+      permissionMode: 'bypassPermissions',
 
       // Hook events for monitoring
       hooks: {

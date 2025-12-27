@@ -4,7 +4,7 @@
 
 ![Giz Code](https://img.shields.io/badge/Giz%20Code-Explore-00FF00?style=for-the-badge&logo=bookstack&logoColor=white)
 
-**코드베이스 탐색 & AI 가이드 - 어떤 저장소든 대화형으로 탐색**
+**AI-powered codebase explorer - Chat with any repository**
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -14,62 +14,89 @@
 
 ---
 
-## 기능
-
-| 탭 | 설명 |
-|---|---|
-| **Browse** | 파일 트리 탐색, 코드 하이라이팅, 이미지/PDF 미리보기 |
-| **Chat** | AI 챗봇으로 코드 질문, 설명, 분석 |
-| **Terminal** | 웹 터미널로 직접 명령어 실행 |
-| **Desktop** | VNC로 원격 데스크탑 접속 (TigerVNC) |
-
-## 빠른 시작
-
-### 1. 자동 설치 (권장)
+## Quick Install
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash
+```
+
+Or with options:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash -s -- \
+  --repo ~/myproject \
+  --password secret \
+  --port 3000 \
+  --api-key sk-ant-xxx
+```
+
+### Install Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--repo PATH` | Target repository to explore | (required) |
+| `--password PASS` | Password for web access | (none) |
+| `--port PORT` | Port to run on | 3000 |
+| `--api-key KEY` | Anthropic API key for AI chat | (none) |
+| `--name NAME` | PM2 process name | giz-code |
+| `--dir PATH` | Installation directory | ~/giz-code |
+| `--no-pm2` | Don't use PM2, just build | false |
+| `--dev` | Development mode (skip build) | false |
+
+---
+
+## Features
+
+| Tab | Description |
+|-----|-------------|
+| **Browse** | File tree, code highlighting, image/PDF preview |
+| **Chat** | AI chatbot for code Q&A, analysis |
+| **Terminal** | Web terminal for command execution |
+| **Desktop** | VNC remote desktop (TigerVNC) |
+
+## Manual Installation
+
+```bash
+# Clone
 git clone https://github.com/GizAI/code.git
 cd code
-./setup.sh
-```
 
-### 2. 수동 설치
+# Install
+npm install
 
-```bash
-# 의존성 설치
-pnpm install
-
-# 환경 설정
+# Configure
 cp .env.example .env.local
-# .env.local 편집하여 REPO_PATH와 API 키 설정
+# Edit .env.local: set REPO_PATH and API key
 
-# 개발 서버 실행
-pnpm dev
+# Run
+npm run dev      # Development
+npm run build && npm start  # Production
 ```
 
-http://localhost:6001 접속
+## Environment Variables
 
-## 환경 설정
-
-`.env.local` 파일:
+`.env.local`:
 
 ```bash
-# 탐색할 저장소 경로 (필수)
+# Repository to explore (required)
 REPO_PATH=/path/to/your/repository
 
-# AI 챗봇 API 키 (선택 - 없으면 챗봇 비활성화)
+# AI chatbot API key (optional)
 ANTHROPIC_API_KEY=sk-ant-...
 
-# VNC - Desktop 기능 (선택)
+# Password protection (optional)
+REPOTUTOR_PASSWORD=your-secret
+
+# VNC Desktop (optional)
 VNC_PORT=5904
 VNC_DISPLAY=:4
 ```
 
-## 아키텍처
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
-│                 Gateway (6001)              │
+│             Gateway (PORT)                  │
 │  ┌─────────────┐  ┌──────────────────────┐  │
 │  │   Next.js   │  │   WebSocket Proxy    │  │
 │  │   (3000)    │  │  - Socket.IO         │  │
@@ -79,63 +106,49 @@ VNC_DISPLAY=:4
          │                    │
          ▼                    ▼
    ┌──────────┐        ┌──────────┐
-   │  REPO_PATH │        │  TigerVNC │
-   │  (files)  │        │  (5904)   │
+   │ REPO_PATH │        │ TigerVNC │
+   │  (files)  │        │  (5904)  │
    └──────────┘        └──────────┘
 ```
 
-## 개발
+## PM2 Commands
 
 ```bash
-# 개발 서버 (Next.js + Gateway 동시 실행)
-pnpm dev
+# View logs
+pm2 logs giz-code
 
-# 빌드
-pnpm build
+# Restart
+pm2 restart giz-code
 
-# 운영 실행
-pnpm start
+# Stop
+pm2 stop giz-code
+
+# Status
+pm2 status
 ```
 
-### 포트
+## VNC Desktop Setup
 
-| 용도 | 개발 | 운영 |
-|-----|------|------|
-| Gateway (메인) | 6001 | 7001 |
-| Next.js (내부) | 3000 | 3000 |
-| VNC | 5904 | 5904 |
-
-## VNC Desktop 설정
-
-Desktop 기능을 사용하려면 TigerVNC 설치:
+For Desktop feature, install TigerVNC:
 
 ```bash
 # Ubuntu/Debian
 sudo apt install tigervnc-standalone-server
 
-# Arch Linux
-sudo pacman -S tigervnc
-
-# VNC 서버 시작 (Remote Resizing 지원)
+# Start VNC
 Xvnc :4 -rfbport 5904 -geometry 1920x1080 -depth 24 \
      -SecurityTypes VncAuth -AcceptSetDesktopSize=1
 ```
 
-## AI 브라우저 제어 (선택)
+## Tech Stack
 
-Chrome이 설치되어 있으면 AI 챗봇이 자동으로 브라우저를 띄워서 조작합니다.
-Chat 탭에서 Claude Code 모드로 "웹 검색해줘" 등 요청하면 작동.
-
-## 기술 스택
-
-- **Frontend**: Next.js 15, React 19, Tailwind CSS, Framer Motion
+- **Frontend**: Next.js 15, React 19, Tailwind CSS
 - **Backend**: Node.js, Socket.IO
 - **Terminal**: xterm.js, node-pty
-- **VNC**: novnc-next (noVNC fork for Next.js)
-- **AI**: Anthropic Claude API, Claude Agent SDK
-- **MCP**: chrome-devtools-mcp (브라우저 자동화)
+- **VNC**: novnc-next
+- **AI**: Anthropic Claude API
 
-## 라이선스
+## License
 
 MIT License - [LICENSE](LICENSE)
 
