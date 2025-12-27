@@ -3,13 +3,10 @@
     "chrome-devtools": {
       "type": "stdio",
       "command": "npx",
-      "args": [
-        "-y",
-        "chrome-devtools-mcp@latest"
-      ],
+      "args": ["-y", "chrome-devtools-mcp@latest"],
       "env": {
-        "DISPLAY": ":99",
-        "CHROME_PATH": "/usr/bin/google-chrome"
+        "CHROME_HEADLESS": "false",
+        "CHROME_USER_DATA_DIR": "/tmp/giz-code-chrome"
       }
     }
   }

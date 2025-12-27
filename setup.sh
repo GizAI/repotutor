@@ -51,13 +51,21 @@ fi
 
 # 선택적: VNC (Desktop 기능)
 echo ""
-echo "선택적 의존성 (Desktop 기능):"
+echo "선택적 의존성:"
 if check_dependency Xvnc; then
-    echo -e "${GREEN}  ✓ TigerVNC 설치됨 - Desktop 기능 사용 가능${NC}"
+    echo -e "${GREEN}  ✓ TigerVNC - Desktop 기능 사용 가능${NC}"
 else
     echo -e "${YELLOW}  ⚠ TigerVNC 미설치 - Desktop 기능 비활성화${NC}"
     echo -e "  → Ubuntu: sudo apt install tigervnc-standalone-server"
-    echo -e "  → Arch: sudo pacman -S tigervnc"
+fi
+
+# 선택적: Chrome (AI 브라우저 제어)
+if check_dependency google-chrome || check_dependency google-chrome-stable || check_dependency chromium; then
+    echo -e "${GREEN}  ✓ Chrome - AI 브라우저 제어 사용 가능${NC}"
+else
+    echo -e "${YELLOW}  ⚠ Chrome 미설치 - AI 브라우저 제어 비활성화${NC}"
+    echo -e "  → Ubuntu: sudo apt install google-chrome-stable"
+    echo -e "  → 또는: sudo snap install chromium"
 fi
 
 if [ $MISSING_DEPS -eq 1 ]; then

@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense, useMemo } from 'react';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileTree, BreadcrumbNav } from '@/components/browser';
 import { ChatBot } from '@/components/chat';
@@ -31,16 +30,67 @@ type MobileTab = 'browse' | 'chat' | 'terminal' | 'desktop';
 
 export default function BrowseLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // URL에서 초기 상태 읽기
+  const initialMobileTab = useMemo(() => {
+    const tab = searchParams.get('tab');
+    return (tab && ['browse', 'chat', 'terminal', 'desktop'].includes(tab)) ? tab as MobileTab : 'browse';
+  }, []);
+
+  const initialBottomTab = useMemo(() => {
+    const panel = searchParams.get('panel');
+    return (panel && ['terminal', 'desktop'].includes(panel)) ? panel as BottomTab : 'terminal';
+  }, []);
+
+  const initialBottomOpen = useMemo(() => searchParams.get('panelOpen') === '1', []);
+  const initialChatOpen = useMemo(() => searchParams.get('chat') !== '0', []); // 기본값 true
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [entries, setEntries] = useState<FileTreeType[] | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(initialChatOpen);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [repoName, setRepoName] = useState('');
-  const [bottomTab, setBottomTab] = useState<BottomTab>('terminal');
-  const [isBottomOpen, setIsBottomOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('browse');
+  const [bottomTab, setBottomTab] = useState<BottomTab>(initialBottomTab);
+  const [isBottomOpen, setIsBottomOpen] = useState(initialBottomOpen);
+  const [mobileTab, setMobileTab] = useState<MobileTab>(initialMobileTab);
   const { openSearch } = useGlobal();
   const { themeMode, cycleTheme, mounted } = useThemeContext();
+
+  // URL 상태 동기화 함수
+  const updateURL = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null) {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+
+    // 기본값이면 URL에서 제거 (깔끔한 URL 유지)
+    if (params.get('tab') === 'browse') params.delete('tab');
+    if (params.get('panel') === 'terminal') params.delete('panel');
+    if (params.get('panelOpen') === '0') params.delete('panelOpen');
+    if (params.get('chat') === '1') params.delete('chat');
+
+    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [pathname, searchParams, router]);
+
+  // 모바일 탭 변경 (URL 동기화 포함)
+  const changeMobileTab = useCallback((tab: MobileTab) => {
+    setMobileTab(tab);
+    updateURL({ tab: tab === 'browse' ? null : tab }); // browse가 기본값
+  }, [updateURL]);
+
+  // 데스크톱 하단 패널 탭 변경 (URL 동기화 포함)
+  const changeBottomTab = useCallback((tab: BottomTab) => {
+    setBottomTab(tab);
+    updateURL({ panel: tab === 'terminal' ? null : tab }); // terminal이 기본값
+  }, [updateURL]);
 
   // Panel refs for imperative collapse/expand
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
@@ -68,12 +118,14 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
       if (panel.isCollapsed()) {
         panel.expand();
         setIsChatOpen(true);
+        updateURL({ chat: null }); // 기본값이므로 제거
       } else {
         panel.collapse();
         setIsChatOpen(false);
+        updateURL({ chat: '0' });
       }
     }
-  }, []);
+  }, [updateURL]);
 
   // Toggle bottom panel
   const toggleBottom = useCallback(() => {
@@ -82,12 +134,14 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
       if (panel.isCollapsed()) {
         panel.expand();
         setIsBottomOpen(true);
+        updateURL({ panelOpen: '1' });
       } else {
         panel.collapse();
         setIsBottomOpen(false);
+        updateURL({ panelOpen: null }); // 닫힘이 기본
       }
     }
-  }, []);
+  }, [updateURL]);
 
   // Open bottom panel with specific tab
   const openBottomTab = useCallback((tab: BottomTab) => {
@@ -97,7 +151,8 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
       panel.expand();
       setIsBottomOpen(true);
     }
-  }, []);
+    updateURL({ panel: tab, panelOpen: '1' });
+  }, [updateURL]);
 
   // 현재 프로젝트 이름 가져오기
   useEffect(() => {
@@ -267,7 +322,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
               <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
                 <ChatBot
                   isOpen={true}
-                  onClose={() => setMobileTab('browse')}
+                  onClose={() => changeMobileTab('browse')}
                   currentPath={currentPath}
                   fullScreen
                 />
@@ -291,7 +346,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
           <nav className="shrink-0 h-14 border-t border-[var(--border-default)] bg-[var(--bg-secondary)]">
             <div className="flex h-full items-center justify-around">
               <button
-                onClick={() => setMobileTab('browse')}
+                onClick={() => changeMobileTab('browse')}
                 className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
                   mobileTab === 'browse' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                 }`}
@@ -300,7 +355,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 <span className="text-[10px] font-medium">Browse</span>
               </button>
               <button
-                onClick={() => setMobileTab('chat')}
+                onClick={() => changeMobileTab('chat')}
                 className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
                   mobileTab === 'chat' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                 }`}
@@ -309,7 +364,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 <span className="text-[10px] font-medium">Chat</span>
               </button>
               <button
-                onClick={() => setMobileTab('terminal')}
+                onClick={() => changeMobileTab('terminal')}
                 className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
                   mobileTab === 'terminal' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                 }`}
@@ -318,7 +373,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 <span className="text-[10px] font-medium">Terminal</span>
               </button>
               <button
-                onClick={() => setMobileTab('desktop')}
+                onClick={() => changeMobileTab('desktop')}
                 className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
                   mobileTab === 'desktop' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                 }`}
@@ -486,7 +541,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
               {/* Tab Header */}
               <div className="shrink-0 flex items-center gap-1 px-2 h-9 border-b border-[var(--border-default)] bg-[var(--bg-secondary)]">
                 <button
-                  onClick={() => setBottomTab('terminal')}
+                  onClick={() => changeBottomTab('terminal')}
                   className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded transition-colors ${
                     bottomTab === 'terminal'
                       ? 'bg-[var(--bg-primary)] text-[var(--text-primary)]'
@@ -497,7 +552,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                   Terminal
                 </button>
                 <button
-                  onClick={() => setBottomTab('desktop')}
+                  onClick={() => changeBottomTab('desktop')}
                   className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded transition-colors ${
                     bottomTab === 'desktop'
                       ? 'bg-[var(--bg-primary)] text-[var(--text-primary)]'

@@ -121,13 +121,19 @@ Xvnc :4 -rfbport 5904 -geometry 1920x1080 -depth 24 \
      -SecurityTypes VncAuth -AcceptSetDesktopSize=1
 ```
 
+## AI 브라우저 제어 (선택)
+
+Chrome이 설치되어 있으면 AI 챗봇이 자동으로 브라우저를 띄워서 조작합니다.
+Chat 탭에서 Claude Code 모드로 "웹 검색해줘" 등 요청하면 작동.
+
 ## 기술 스택
 
 - **Frontend**: Next.js 15, React 19, Tailwind CSS, Framer Motion
 - **Backend**: Node.js, Socket.IO
 - **Terminal**: xterm.js, node-pty
 - **VNC**: novnc-next (noVNC fork for Next.js)
-- **AI**: Anthropic Claude API
+- **AI**: Anthropic Claude API, Claude Agent SDK
+- **MCP**: chrome-devtools-mcp (브라우저 자동화)
 
 ## 라이선스
 

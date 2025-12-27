@@ -181,7 +181,7 @@ export function ChatBot({ isOpen, onClose, currentPath, fullScreen = false }: Ch
 
     try {
       // Use credentials: 'same-origin' to send cookies automatically
-      const response = await fetch('/api/chat/unified', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
