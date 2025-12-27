@@ -215,13 +215,18 @@ install_deps() {
     log "Installing dependencies..."
     cd "$INSTALL_DIR"
 
-    if ! npm install --legacy-peer-deps 2>&1; then
-        warn "Some optional dependencies failed, continuing..."
-    fi
+    # node-pty is optional - will fail gracefully if build tools missing
+    npm install --legacy-peer-deps 2>&1
 
     # Verify critical deps
     if [ ! -f "node_modules/.bin/next" ]; then
-        error "Failed to install dependencies"
+        error "Failed to install dependencies. Check Node.js/npm."
+    fi
+
+    # Check if terminal feature is available
+    if [ ! -d "node_modules/node-pty" ]; then
+        warn "Terminal feature disabled (node-pty not installed)"
+        warn "To enable: sudo apt install build-essential && npm rebuild"
     fi
 
     success "Dependencies installed"
