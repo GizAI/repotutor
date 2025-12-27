@@ -246,7 +246,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
   // SSR/초기 렌더링: skeleton 표시 (hydration mismatch 방지)
   if (!mounted || isMobile === null) {
     return (
-      <div className="flex h-screen bg-[var(--bg-primary)]">
+      <div className="flex h-dvh bg-[var(--bg-primary)]">
         <div className="flex-1 animate-pulse bg-[var(--bg-secondary)]" />
       </div>
     );
@@ -256,7 +256,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
   if (isMobile) {
     return (
       <BrowseContext.Provider value={{ entries, currentPath }}>
-        <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
+        <div className="flex flex-col h-dvh bg-[var(--bg-primary)]">
           {/* Header */}
           <header className="shrink-0 h-12 border-b border-[var(--border-default)] bg-[var(--bg-primary)]">
             <div className="flex h-full items-center gap-2 px-3">
@@ -391,7 +391,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
   // 데스크톱: Flexbox 레이아웃 with bottom panel
   return (
     <BrowseContext.Provider value={{ entries, currentPath }}>
-      <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
+      <div className="flex flex-col h-dvh bg-[var(--bg-primary)]">
         {/* Sticky Header */}
         <header className="shrink-0 h-12 border-b border-[var(--border-default)] bg-[var(--bg-primary)]/80 backdrop-blur-xl z-40">
           <div className="flex h-full items-center justify-between px-4">

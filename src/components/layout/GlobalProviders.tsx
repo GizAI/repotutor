@@ -129,7 +129,7 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
         </>
       ) : !mounted ? (
         /* SSR/초기 로딩: 데스크톱 레이아웃으로 통일 (hydration 일치) */
-        <div className="flex min-h-screen">
+        <div className="flex min-h-dvh">
           <div className="flex-1 min-w-0">{children}</div>
         </div>
       ) : isMobile ? (
@@ -198,7 +198,7 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
         </>
       ) : (
         /* 데스크톱: 분리 레이아웃 */
-        <div className="flex min-h-screen">
+        <div className="flex min-h-dvh">
           {/* 메인 콘텐츠 */}
           <div
             className="flex-1 min-w-0 transition-all duration-300"

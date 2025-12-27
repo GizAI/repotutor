@@ -87,7 +87,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-[var(--bg-primary)] px-4">
       <Suspense fallback={
         <div className="w-full max-w-sm text-center">
           <div className="animate-pulse">Loading...</div>

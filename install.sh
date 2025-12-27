@@ -4,7 +4,7 @@
 
 set -e
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 RELEASE_URL="https://github.com/GizAI/code/releases/download/v${VERSION}/giz-code-linux-x64.tar.gz"
 INSTALL_DIR="${GIZ_CODE_DIR:-$HOME/giz-code}"
 

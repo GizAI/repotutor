@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   return (
     <ThemeContext.Provider value={themeState}>
-      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-200">
+      <div className="min-h-dvh bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-200">
         {children}
       </div>
     </ThemeContext.Provider>
