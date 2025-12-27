@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// RFB will be dynamically imported
-type RFBType = InstanceType<typeof import('@/lib/novnc/rfb').default>;
+// RFB will be dynamically imported from novnc-next (Next.js compatible noVNC)
+type RFBType = InstanceType<typeof import('novnc-next').default>;
 
 export interface VNCState {
   status: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -49,8 +49,8 @@ export function useVNC(containerRef: React.RefObject<HTMLDivElement | null>) {
     setState(s => ({ ...s, status: 'connecting', error: null }));
 
     try {
-      // Dynamic import RFB
-      const RFB = (await import('@/lib/novnc/rfb')).default;
+      // Dynamic import RFB from novnc-next
+      const RFB = (await import('novnc-next')).default;
 
       const rfb = new RFB(containerRef.current, url, {
         credentials: { password: '' },

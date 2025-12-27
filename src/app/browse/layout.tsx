@@ -169,8 +169,8 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleSidebar, toggleChat, toggleBottom, openBottomTab, isBottomOpen, bottomTab]);
 
-  // 모바일 레이아웃
-  const [isMobile, setIsMobile] = useState(false);
+  // 모바일 레이아웃 - mounted 후에만 결정 (hydration 에러 방지)
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1023px)');
     setIsMobile(media.matches);
@@ -188,7 +188,16 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
     return () => media.removeEventListener('change', listener);
   }, []);
 
-  // 모바일: 3탭 (Browse, Terminal, Chat) + 햄버거 사이드바
+  // SSR/초기 렌더링: skeleton 표시 (hydration mismatch 방지)
+  if (!mounted || isMobile === null) {
+    return (
+      <div className="flex h-screen bg-[var(--bg-primary)]">
+        <div className="flex-1 animate-pulse bg-[var(--bg-secondary)]" />
+      </div>
+    );
+  }
+
+  // 모바일: 4탭 (Browse, Chat, Terminal, Desktop) + 햄버거 사이드바
   if (isMobile) {
     return (
       <BrowseContext.Provider value={{ entries, currentPath }}>

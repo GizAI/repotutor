@@ -2,256 +2,139 @@
 
 <div align="center">
 
-![Giz Code](https://img.shields.io/badge/Giz%20Code-AI%20Docs-00FF00?style=for-the-badge&logo=bookstack&logoColor=white)
+![Giz Code](https://img.shields.io/badge/Giz%20Code-Explore-00FF00?style=for-the-badge&logo=bookstack&logoColor=white)
 
-**AI-powered interactive documentation and learning platform for any codebase**
+**코드베이스 탐색 & AI 가이드 - 어떤 저장소든 대화형으로 탐색**
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
 
-[Demo](https://code.giz.ai) · [Documentation](https://github.com/GizAI/code/wiki) · [Report Bug](https://github.com/GizAI/code/issues)
-
 </div>
 
 ---
 
-## What is Giz Code?
+## 기능
 
-Giz Code transforms any code repository into a beautiful, interactive learning experience. Just point it at your codebase, and it automatically:
+| 탭 | 설명 |
+|---|---|
+| **Browse** | 파일 트리 탐색, 코드 하이라이팅, 이미지/PDF 미리보기 |
+| **Chat** | AI 챗봇으로 코드 질문, 설명, 분석 |
+| **Terminal** | 웹 터미널로 직접 명령어 실행 |
+| **Desktop** | VNC로 원격 데스크탑 접속 (TigerVNC) |
 
-- **Analyzes** your code structure with AI
-- **Generates** comprehensive documentation
-- **Creates** interactive diagrams (Mermaid)
-- **Builds** a stunning documentation website
+## 빠른 시작
 
-Perfect for onboarding new developers, creating internal docs, or open-source project documentation.
-
-## Features
-
-### Automatic Code Analysis
-- Detects project structure, dependencies, and architecture
-- Identifies key patterns and design decisions
-- Maps relationships between components
-
-### Beautiful Documentation
-- MDX-powered content with React components
-- Dark/Light theme with stunning aesthetics
-- Responsive design for all devices
-
-### Interactive Visualizations
-- Mermaid diagrams auto-rendered from code
-- Architecture flowcharts
-- Sequence diagrams
-- Entity relationship diagrams
-
-### Zero Configuration
-- Works with any JavaScript/TypeScript project
-- Automatic file detection
-- Smart content organization
-
-## Quick Start
-
-### Option 1: npx (Recommended)
+### 1. 자동 설치 (권장)
 
 ```bash
-npx giz-code init
-npx giz-code dev
-```
-
-### Option 2: Clone & Install
-
-```bash
-# Clone the repository
 git clone https://github.com/GizAI/code.git
 cd code
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
+./setup.sh
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your documentation.
-
-## Project Structure
-
-```
-giz-code/
-├── content/           # Your MDX documentation files
-│   ├── 00-getting-started.mdx
-│   ├── 01-architecture.mdx
-│   └── ...
-├── src/
-│   ├── app/           # Next.js App Router
-│   ├── components/    # React components
-│   │   ├── layout/    # Layout components
-│   │   ├── mdx/       # MDX components
-│   │   └── ui/        # UI primitives
-│   └── lib/           # Utilities
-├── scripts/           # CLI scripts
-└── public/            # Static assets
-```
-
-## Writing Documentation
-
-Create MDX files in the `content/` folder:
-
-```mdx
----
-title: Getting Started
-description: Quick start guide for your project
-icon: book
-order: 0
----
-
-# Getting Started
-
-Your content here...
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[Client] --> B[API]
-    B --> C[Database]
-```
-
-<Callout type="tip" title="Pro Tip">
-  Use custom components for rich documentation!
-</Callout>
-
-<Grid cols={2}>
-  <Feature icon="bolt" title="Fast">
-    Built with Next.js 15 and Turbopack
-  </Feature>
-  <Feature icon="shield" title="Type Safe">
-    Full TypeScript support
-  </Feature>
-</Grid>
-```
-
-## Available Components
-
-| Component | Description |
-|-----------|-------------|
-| `<Card>` | Content container with optional glow effect |
-| `<Callout>` | Info, warning, and tip callouts |
-| `<Grid>` | Responsive grid layout (2-4 columns) |
-| `<Feature>` | Feature card with icon |
-| `<Steps>` | Step-by-step tutorial format |
-| `<Terminal>` | Code block with terminal styling |
-| `<Chip>` | Tag/badge component |
-
-## Mermaid Diagrams
-
-Giz Code automatically renders Mermaid diagrams from code blocks:
-
-````markdown
-```mermaid
-sequenceDiagram
-    User->>API: Request
-    API->>Database: Query
-    Database-->>API: Result
-    API-->>User: Response
-```
-````
-
-Supported diagram types:
-- Flowcharts
-- Sequence diagrams
-- Class diagrams
-- Entity Relationship diagrams
-- State diagrams
-- Gantt charts
-- And more...
-
-## Themes
-
-Giz Code includes two stunning themes:
-
-### Noir (Dark)
-- Deep blacks with lime accents
-- Perfect for focused reading
-- Atmospheric gradients
-
-### Paper (Light)
-- Warm paper tones
-- Blue accent colors
-- Easy on the eyes
-
-Toggle themes with the sun/moon button in the header.
-
-## Configuration
-
-### next.config.ts
-
-```typescript
-const config = {
-  // Add custom configuration here
-};
-
-export default config;
-```
-
-### Environment Variables
+### 2. 수동 설치
 
 ```bash
-# .env.local
-NEXT_PUBLIC_SITE_URL=https://your-domain.com
+# 의존성 설치
+pnpm install
+
+# 환경 설정
+cp .env.example .env.local
+# .env.local 편집하여 REPO_PATH와 API 키 설정
+
+# 개발 서버 실행
+pnpm dev
 ```
 
-## Deployment
+http://localhost:6001 접속
 
-### Vercel (Recommended)
+## 환경 설정
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/GizAI/code)
-
-### Other Platforms
+`.env.local` 파일:
 
 ```bash
-# Build for production
-npm run build
+# 탐색할 저장소 경로 (필수)
+REPO_PATH=/path/to/your/repository
 
-# Start production server
-npm start
+# AI 챗봇 API 키 (선택 - 없으면 챗봇 비활성화)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# VNC - Desktop 기능 (선택)
+VNC_PORT=5904
+VNC_DISPLAY=:4
 ```
 
-## Contributing
+## 아키텍처
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) first.
+```
+┌─────────────────────────────────────────────┐
+│                 Gateway (6001)              │
+│  ┌─────────────┐  ┌──────────────────────┐  │
+│  │   Next.js   │  │   WebSocket Proxy    │  │
+│  │   (3000)    │  │  - Socket.IO         │  │
+│  │             │  │  - VNC WebSocket     │  │
+│  └─────────────┘  └──────────────────────┘  │
+└─────────────────────────────────────────────┘
+         │                    │
+         ▼                    ▼
+   ┌──────────┐        ┌──────────┐
+   │  REPO_PATH │        │  TigerVNC │
+   │  (files)  │        │  (5904)   │
+   └──────────┘        └──────────┘
+```
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 개발
 
-## Roadmap
+```bash
+# 개발 서버 (Next.js + Gateway 동시 실행)
+pnpm dev
 
-- [ ] AI-powered content generation
-- [ ] GitHub integration for auto-sync
-- [ ] Multiple language support
-- [ ] Custom theme builder
-- [ ] Plugin system
-- [ ] VS Code extension
+# 빌드
+pnpm build
 
-## License
+# 운영 실행
+pnpm start
+```
 
-MIT License - see [LICENSE](LICENSE) for details.
+### 포트
 
-## Credits
+| 용도 | 개발 | 운영 |
+|-----|------|------|
+| Gateway (메인) | 6001 | 7001 |
+| Next.js (내부) | 3000 | 3000 |
+| VNC | 5904 | 5904 |
 
-Built with:
-- [Next.js](https://nextjs.org/) - React framework
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Framer Motion](https://www.framer.com/motion/) - Animations
-- [Mermaid](https://mermaid.js.org/) - Diagrams
-- [MDX](https://mdxjs.com/) - Markdown + JSX
+## VNC Desktop 설정
+
+Desktop 기능을 사용하려면 TigerVNC 설치:
+
+```bash
+# Ubuntu/Debian
+sudo apt install tigervnc-standalone-server
+
+# Arch Linux
+sudo pacman -S tigervnc
+
+# VNC 서버 시작 (Remote Resizing 지원)
+Xvnc :4 -rfbport 5904 -geometry 1920x1080 -depth 24 \
+     -SecurityTypes VncAuth -AcceptSetDesktopSize=1
+```
+
+## 기술 스택
+
+- **Frontend**: Next.js 15, React 19, Tailwind CSS, Framer Motion
+- **Backend**: Node.js, Socket.IO
+- **Terminal**: xterm.js, node-pty
+- **VNC**: novnc-next (noVNC fork for Next.js)
+- **AI**: Anthropic Claude API
+
+## 라이선스
+
+MIT License - [LICENSE](LICENSE)
 
 ---
 
 <div align="center">
-  <sub>Built with by <a href="https://github.com/GizAI">GizAI</a></sub>
+  <sub>Built by <a href="https://giz.ai">GizAI</a></sub>
 </div>
