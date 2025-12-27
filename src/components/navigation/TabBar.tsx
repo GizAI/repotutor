@@ -4,17 +4,19 @@ import { motion } from 'framer-motion';
 import { Folder, MessageSquare, TerminalSquare, Monitor } from 'lucide-react';
 import { useTab, TabType } from './TabContext';
 import { useIsKeyboardOpen } from '@/hooks/useMediaQuery';
+import { useT } from '@/lib/i18n';
 
-const tabs: { id: TabType; icon: typeof Folder; label: string }[] = [
-  { id: 'browse', icon: Folder, label: '탐색' },
-  { id: 'chat', icon: MessageSquare, label: 'AI' },
-  { id: 'terminal', icon: TerminalSquare, label: '터미널' },
-  { id: 'desktop', icon: Monitor, label: '데스크톱' },
+const tabConfigs: { id: TabType; icon: typeof Folder; labelKey: string }[] = [
+  { id: 'browse', icon: Folder, labelKey: 'nav.browse' },
+  { id: 'chat', icon: MessageSquare, labelKey: 'nav.chat' },
+  { id: 'terminal', icon: TerminalSquare, labelKey: 'nav.terminal' },
+  { id: 'desktop', icon: Monitor, labelKey: 'nav.desktop' },
 ];
 
 export function TabBar() {
   const { activeTab, setActiveTab } = useTab();
   const isKeyboardOpen = useIsKeyboardOpen();
+  const { t } = useT();
 
   if (isKeyboardOpen) return null;
 
@@ -25,7 +27,7 @@ export function TabBar() {
       role="tablist"
     >
       <div className="flex items-center justify-around h-14">
-        {tabs.map((tab) => {
+        {tabConfigs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
 
@@ -57,7 +59,7 @@ export function TabBar() {
                 <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
               </motion.div>
               <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>
-                {tab.label}
+                {t(tab.labelKey)}
               </span>
             </button>
           );

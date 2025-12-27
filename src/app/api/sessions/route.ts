@@ -13,7 +13,8 @@ import readline from 'readline';
 import { createReadStream } from 'fs';
 
 interface ClaudeMessage {
-  type: 'user' | 'assistant';
+  type: 'user' | 'assistant' | 'summary';
+  summary?: string;  // Claude-generated session title
   message?: {
     role: string;
     content: Array<{ type: string; text?: string }> | string;
@@ -25,6 +26,7 @@ interface ClaudeMessage {
   };
   timestamp?: string;
   sessionId?: string;
+  isMeta?: boolean;  // Skip meta messages like /clear
 }
 
 interface SessionSummary {
@@ -59,7 +61,8 @@ async function parseSessionFile(filePath: string): Promise<{
       crlfDelay: Infinity,
     });
 
-    let title = '';
+    let summaryTitle = '';  // From Claude's summary record (preferred)
+    let firstUserTitle = '';  // Fallback: first user message
     let preview = '';
     let messageCount = 0;
     let model: string | undefined;
@@ -70,22 +73,30 @@ async function parseSessionFile(filePath: string): Promise<{
       try {
         const entry = JSON.parse(line) as ClaudeMessage;
 
+        // Get title from summary record (Claude-generated, preferred)
+        if (entry.type === 'summary' && entry.summary) {
+          summaryTitle = entry.summary;  // Use latest summary
+        }
+
         // Track timestamps
         if (entry.timestamp) {
           if (!createdAt) createdAt = entry.timestamp;
           updatedAt = entry.timestamp;
         }
 
-        // Count user/assistant messages
-        if (entry.type === 'user' && entry.message) {
+        // Count user/assistant messages (skip meta messages)
+        if (entry.type === 'user' && entry.message && !entry.isMeta) {
           messageCount++;
 
-          // Get title from first user message
-          if (!title && entry.message.content) {
+          // Fallback title from first real user message
+          if (!firstUserTitle && entry.message.content) {
             const content = Array.isArray(entry.message.content)
               ? entry.message.content.find(c => c.type === 'text')?.text || ''
-              : entry.message.content;
-            title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
+              : String(entry.message.content);
+            // Skip IDE/system messages
+            if (!content.startsWith('<ide_') && !content.startsWith('<command-') && !content.startsWith('<local-command')) {
+              firstUserTitle = content.slice(0, 50) + (content.length > 50 ? '...' : '');
+            }
           }
         }
 
@@ -97,12 +108,14 @@ async function parseSessionFile(filePath: string): Promise<{
             model = entry.message.model;
           }
 
-          // Get preview from last assistant message
+          // Get preview from last assistant message (text content only)
           if (entry.message.content) {
             const content = Array.isArray(entry.message.content)
               ? entry.message.content.find(c => c.type === 'text')?.text || ''
-              : entry.message.content;
-            preview = content.slice(0, 100);
+              : String(entry.message.content);
+            if (content) {
+              preview = content.slice(0, 100);
+            }
           }
         }
       } catch {
@@ -113,7 +126,7 @@ async function parseSessionFile(filePath: string): Promise<{
     if (messageCount === 0) return null;
 
     return {
-      title: title || '(제목 없음)',
+      title: summaryTitle || firstUserTitle || '(Untitled)',
       preview,
       messageCount,
       model,

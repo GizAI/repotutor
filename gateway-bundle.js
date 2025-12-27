@@ -51479,13 +51479,16 @@ var FilesChannel = class {
 
 // src/ws/channels/terminal.ts
 var pty = __toESM(require("node-pty"));
+var MAX_BUFFER_SIZE = 100 * 1024;
 var TerminalChannel = class {
   constructor() {
     this.name = "terminal";
     this.io = null;
     this.term = null;
     this.clients = /* @__PURE__ */ new Set();
+    this.scrollbackBuffer = "";
   }
+  // Store terminal output for session persistence
   onRegister(io3) {
     this.io = io3;
     console.log("[Terminal] Channel registered");
@@ -51497,6 +51500,10 @@ var TerminalChannel = class {
       this.createTerm();
     }
     socket.emit("terminal:ready", { cols: this.term?.cols, rows: this.term?.rows });
+    if (this.scrollbackBuffer.length > 0) {
+      socket.emit("terminal:buffer", this.scrollbackBuffer);
+      console.log(`[Terminal] Sent ${this.scrollbackBuffer.length} bytes of scrollback buffer`);
+    }
   }
   onUnsubscribe(socket) {
     this.clients.delete(socket);
@@ -51550,6 +51557,10 @@ var TerminalChannel = class {
       env: process.env
     });
     this.term.onData((data) => {
+      this.scrollbackBuffer += data;
+      if (this.scrollbackBuffer.length > MAX_BUFFER_SIZE) {
+        this.scrollbackBuffer = this.scrollbackBuffer.slice(-MAX_BUFFER_SIZE);
+      }
       this.clients.forEach((socket) => {
         socket.emit("terminal:data", data);
       });
@@ -51670,9 +51681,7 @@ EOF`);
         "-geometry",
         "1280x720",
         "-depth",
-        "24",
-        "-randr",
-        "1920x1080,1680x1050,1440x900,1280x1024,1280x800,1280x720,1024x768,800x600"
+        "24"
       ], {
         stdio: "inherit",
         detached: true

@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { Message } from '../types';
-import { Icon } from '@/components/ui/Icon';
+import { Sparkles } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 
 export function MessageBubble({ message }: { message: Message }) {
@@ -26,7 +26,7 @@ export function MessageBubble({ message }: { message: Message }) {
   return (
     <div className="flex gap-3">
       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]">
-        <Icon name="spark" className="h-3.5 w-3.5 text-white" />
+        <Sparkles className="h-3.5 w-3.5 text-white" />
       </div>
       <div className="flex-1 min-w-0">
         {/* Thinking (collapsible) */}

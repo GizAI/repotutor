@@ -2,7 +2,24 @@
 
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Icon, type IconName } from '../ui/Icon';
+import {
+  Sparkles, Network, ShieldCheck, Zap, Layers, Code2, BookOpen,
+  Folder, FolderCode, Terminal, GitBranch, type LucideIcon
+} from 'lucide-react';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  spark: Sparkles,
+  wires: Network,
+  shield: ShieldCheck,
+  bolt: Zap,
+  layers: Layers,
+  code: Code2,
+  book: BookOpen,
+  folder: Folder,
+  'folder-code': FolderCode,
+  terminal: Terminal,
+  gitBranch: GitBranch,
+};
 
 // ============================================
 // Architecture Diagram - 인터랙티브 아키텍처 뷰
@@ -10,7 +27,7 @@ import { Icon, type IconName } from '../ui/Icon';
 interface ArchNode {
   id: string;
   label: string;
-  icon?: IconName;
+  icon?: string;
   type?: 'client' | 'server' | 'database' | 'external' | 'default';
   x: number;
   y: number;
@@ -156,7 +173,7 @@ export function ArchitectureDiagram({
 // ============================================
 // Flow Diagram - 스텝별 흐름도
 // ============================================
-export function FlowDiagram({ steps }: { steps: { title: string; description: string; icon?: IconName }[] }) {
+export function FlowDiagram({ steps }: { steps: { title: string; description: string; icon?: string }[] }) {
   const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
@@ -198,7 +215,7 @@ export function FlowDiagram({ steps }: { steps: { title: string; description: st
               }`}>
                 {i + 1}
               </span>
-              {step.icon && <Icon name={step.icon} className="h-4 w-4 text-[var(--accent)]" />}
+              {step.icon && (() => { const IconComponent = ICON_MAP[step.icon]; return IconComponent ? <IconComponent className="h-4 w-4 text-[var(--accent)]" /> : null; })()}
             </div>
             <div className="text-sm font-semibold text-[var(--text-primary)]">{step.title}</div>
             <div className="text-[10px] text-[var(--text-secondary)] mt-1">{step.description}</div>

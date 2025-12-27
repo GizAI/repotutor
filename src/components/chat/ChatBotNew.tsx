@@ -2,10 +2,11 @@
  * ChatBot - WebSocket-based with Timeline View
  *
  * Features:
+ * - Claude Code sessions from ~/.claude/projects/
+ * - DeepAgents mode (LangGraph)
  * - Persistent sessions (survives browser refresh via server buffering)
  * - Chronological timeline (messages + tools interleaved)
  * - Real-time streaming with tool output
- * - Session list with running/completed status
  */
 
 'use client';
@@ -20,12 +21,12 @@ import 'katex/dist/katex.min.css';
 
 import { useChatWS, TimelineItem, SessionInfo } from '@/hooks/useChatWS';
 import { ToolCallCard, ContextMeter, CodeBlock } from './parts';
-import { Icon } from '@/components/ui/Icon';
 import { TokenUsagePie } from '@/components/ui/TokenUsagePie';
 import { MicButton } from '@/components/ui/MicButton';
 import {
   Clock, Send, Plus, X, Lightbulb, AlertTriangle,
-  ChevronDown, Check, XCircle
+  Bot, Zap, Menu, Sparkles, ChevronDown, ChevronRight, Brain,
+  Server, Shield, Terminal, Wrench, Info, DollarSign
 } from 'lucide-react';
 
 interface ChatBotProps {
@@ -35,6 +36,8 @@ interface ChatBotProps {
   fullScreen?: boolean;
 }
 
+type AgentMode = 'claude-code' | 'deepagents';
+
 export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }: ChatBotProps) {
   const chat = useChatWS();
 
@@ -42,8 +45,12 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
   const [input, setInput] = useState('');
   const [showSessions, setShowSessions] = useState(false);
   const [showThinking, setShowThinking] = useState(true);
+  const [showSessionInfo, setShowSessionInfo] = useState(false);
+  const [showHooks, setShowHooks] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<{ name: string; dataUrl: string }[]>([]);
+  const [mode, setMode] = useState<AgentMode>('claude-code');
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const [budgetLimit] = useState(() => {
     if (typeof window !== 'undefined') {
       return parseFloat(localStorage.getItem('budgetLimit') || '10');
@@ -90,8 +97,8 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
     const msg = input.trim();
     if (!msg || chat.isRunning) return;
     setInput('');
-    chat.send(msg, currentPath);
-  }, [input, chat, currentPath]);
+    chat.send(msg, currentPath, mode);
+  }, [input, chat, currentPath, mode]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -143,11 +150,11 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
   return (
     <div className={containerClass}>
       {/* Header */}
-      <header className="flex items-center gap-3 h-14 px-4 border-b border-[var(--border-default)]">
-        {/* History button with running indicator */}
+      <header className="flex items-center gap-2 h-14 px-4 border-b border-[var(--border-default)]">
+        {/* Sessions button with running indicator */}
         <button onClick={() => setShowSessions(true)}
           className="relative flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]">
-          <Clock className="w-4 h-4" />
+          <Menu className="w-5 h-5" />
           {chat.runningSessions.length > 0 && (
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-[10px] text-white rounded-full flex items-center justify-center">
               {chat.runningSessions.length}
@@ -155,22 +162,84 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
           )}
         </button>
 
-        {/* Connection status */}
-        <div className={`w-2 h-2 rounded-full ${chat.connected ? 'bg-emerald-500' : 'bg-red-500'}`} />
-
-        <div className="flex-1 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)]">
-            <Icon name="spark" className="h-3.5 w-3.5 text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-[var(--text-primary)]">
-              Claude Agent
-              {chat.isRunning && <span className="ml-2 text-xs text-emerald-500">(running)</span>}
+        {/* Mode Selector Dropdown - serves as title */}
+        <div className="relative flex-1">
+          <button
+            onClick={() => setShowModeMenu(!showModeMenu)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+          >
+            <div className={`w-2 h-2 rounded-full ${chat.connected ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            <div className="flex items-center gap-1.5">
+              {mode === 'claude-code' ? <Zap className="w-4 h-4 text-[var(--accent)]" /> : <Bot className="w-4 h-4 text-purple-500" />}
+              <span className="text-sm font-medium text-[var(--text-primary)]">
+                {mode === 'claude-code' ? 'Claude Code' : 'DeepAgents'}
+              </span>
+              {chat.isRunning && <span className="text-xs text-emerald-500">(running)</span>}
             </div>
-            {chat.sessionId && (
-              <div className="text-[10px] text-[var(--text-tertiary)]">{chat.sessionId.slice(0, 12)}...</div>
+            <svg className={`w-4 h-4 text-[var(--text-tertiary)] transition-transform ${showModeMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Dropdown menu */}
+          <AnimatePresence>
+            {showModeMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="absolute top-full left-0 mt-1 w-56 py-1 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] shadow-lg z-50"
+              >
+                <button
+                  onClick={() => { setMode('claude-code'); setShowModeMenu(false); }}
+                  className={`w-full px-3 py-2 text-left flex items-center gap-3 hover:bg-[var(--hover-bg)] ${mode === 'claude-code' ? 'bg-[var(--accent-soft)]' : ''}`}
+                >
+                  <Zap className="w-4 h-4 text-[var(--accent)]" />
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">Claude Code</div>
+                    <div className="text-[10px] text-[var(--text-tertiary)]">Full SDK with MCP tools</div>
+                  </div>
+                  {mode === 'claude-code' && <svg className="w-4 h-4 ml-auto text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                </button>
+                <button
+                  onClick={() => { setMode('deepagents'); setShowModeMenu(false); }}
+                  className={`w-full px-3 py-2 text-left flex items-center gap-3 hover:bg-[var(--hover-bg)] ${mode === 'deepagents' ? 'bg-[var(--accent-soft)]' : ''}`}
+                >
+                  <Bot className="w-4 h-4 text-purple-500" />
+                  <div>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">DeepAgents</div>
+                    <div className="text-[10px] text-[var(--text-tertiary)]">LangGraph ReAct agent</div>
+                  </div>
+                  {mode === 'deepagents' && <svg className="w-4 h-4 ml-auto text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                </button>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Model badge */}
+          {chat.model && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] font-mono">
+              {chat.model.replace('claude-', '').replace(/-\d{8}$/, '')}
+            </span>
+          )}
+
+          {/* Active tools indicator */}
+          {chat.activeTools.size > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-purple-500">
+              <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              <span>{chat.activeTools.size} tool{chat.activeTools.size > 1 ? 's' : ''}</span>
+            </div>
+          )}
+
+          {/* Auth status */}
+          {chat.isAuthenticating && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-500">
+              <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <span>Auth...</span>
+            </div>
+          )}
 
           {chat.contextInfo.isCompacting && (
             <div className="text-xs text-amber-500 animate-pulse">Compacting...</div>
@@ -182,13 +251,127 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
           )}
         </div>
 
+        {/* Session info toggle */}
+        {(chat.mcpServers?.length || chat.tools?.length || chat.sessionCost > 0) && (
+          <button
+            onClick={() => setShowSessionInfo(!showSessionInfo)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]"
+            title="Session Info"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        )}
+
         {!fullScreen && (
           <button onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]">
-            <Icon name="close" className="h-5 w-5" />
+            <X className="h-5 w-5" />
           </button>
         )}
       </header>
+
+      {/* Session info panel */}
+      <AnimatePresence>
+        {showSessionInfo && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-secondary)]"
+          >
+            <div className="flex flex-wrap items-center gap-3 text-[10px]">
+              {/* Session cost */}
+              {chat.sessionCost > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600">
+                  <DollarSign className="w-3 h-3" />
+                  <span className="font-medium">${chat.sessionCost.toFixed(4)}</span>
+                </div>
+              )}
+
+              {/* Permission mode */}
+              {chat.permissionMode && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-500/10 text-blue-600">
+                  <Shield className="w-3 h-3" />
+                  <span>{chat.permissionMode}</span>
+                </div>
+              )}
+
+              {/* Tools count */}
+              {chat.tools && chat.tools.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-purple-500/10 text-purple-600">
+                  <Wrench className="w-3 h-3" />
+                  <span>{chat.tools.length} tools</span>
+                </div>
+              )}
+
+              {/* Skills count */}
+              {chat.skills && chat.skills.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/10 text-amber-600">
+                  <Sparkles className="w-3 h-3" />
+                  <span>{chat.skills.length} skills</span>
+                </div>
+              )}
+
+              {/* MCP servers */}
+              {chat.mcpServers && chat.mcpServers.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Server className="w-3 h-3 text-[var(--text-tertiary)]" />
+                  {chat.mcpServers.map((srv, idx) => (
+                    <span
+                      key={idx}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
+                        srv.status === 'connected' ? 'bg-emerald-500/10 text-emerald-600' :
+                        srv.status === 'failed' ? 'bg-red-500/10 text-red-500' :
+                        'bg-gray-500/10 text-gray-500'
+                      }`}
+                      title={`${srv.name}: ${srv.status}`}
+                    >
+                      {srv.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hook responses panel */}
+      <AnimatePresence>
+        {chat.hookResponses.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="border-b border-[var(--border-default)]"
+          >
+            <button
+              onClick={() => setShowHooks(!showHooks)}
+              className="w-full px-4 py-1.5 flex items-center gap-2 text-[10px] text-[var(--text-tertiary)] hover:bg-[var(--hover-bg)]"
+            >
+              <Terminal className="w-3 h-3" />
+              <span>{chat.hookResponses.length} hook{chat.hookResponses.length > 1 ? 's' : ''} executed</span>
+              <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${showHooks ? 'rotate-180' : ''}`} />
+            </button>
+            {showHooks && (
+              <div className="px-4 pb-2 space-y-1 max-h-32 overflow-y-auto">
+                {chat.hookResponses.map((hook, idx) => (
+                  <div key={idx} className="text-[9px] font-mono p-2 rounded bg-[var(--bg-tertiary)]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[var(--text-primary)] font-medium">{hook.hookName}</span>
+                      <span className="text-[var(--text-tertiary)]">{hook.hookEvent}</span>
+                      {hook.exitCode !== undefined && hook.exitCode !== 0 && (
+                        <span className="text-red-500">exit: {hook.exitCode}</span>
+                      )}
+                    </div>
+                    {hook.stdout && <div className="text-[var(--text-secondary)] whitespace-pre-wrap">{hook.stdout.slice(0, 200)}</div>}
+                    {hook.stderr && <div className="text-red-400 whitespace-pre-wrap">{hook.stderr.slice(0, 200)}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Thinking panel */}
       <AnimatePresence>
@@ -207,9 +390,24 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
         )}
       </AnimatePresence>
 
+      {/* Error banner */}
+      <AnimatePresence>
+        {(chat.error || chat.authError) && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="px-4 py-2 border-b border-red-500/30 bg-red-500/10">
+            <div className="flex items-center gap-2">
+              <X className="w-4 h-4 text-red-500" />
+              <span className="text-xs text-red-600 font-medium">
+                {chat.authError || chat.error}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Budget warning */}
       <AnimatePresence>
-        {budgetWarning && (
+        {budgetWarning && !chat.error && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
             className="px-4 py-2 border-b border-amber-500/30 bg-amber-500/10">
             <div className="flex items-center gap-2">
@@ -223,25 +421,49 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
       </AnimatePresence>
 
       {/* Usage widget */}
-      {chat.lastUsage?.costUsd !== undefined && (
+      {chat.lastUsage && (chat.lastUsage.costUsd !== undefined || chat.lastUsage.inputTokens) && (
         <div className="px-4 py-1.5 border-b border-[var(--border-default)] bg-[var(--bg-secondary)]">
           <div className="flex items-center justify-between text-[10px] text-[var(--text-tertiary)]">
             <div className="flex items-center gap-3">
               {chat.lastUsage.inputTokens !== undefined && chat.lastUsage.outputTokens !== undefined && (
-                <TokenUsagePie used={(chat.lastUsage.inputTokens || 0) + (chat.lastUsage.outputTokens || 0)} total={200000} />
+                <>
+                  <TokenUsagePie used={(chat.lastUsage.inputTokens || 0) + (chat.lastUsage.outputTokens || 0)} total={200000} />
+                  <span>
+                    {formatTokens(chat.lastUsage.inputTokens)}↓ {formatTokens(chat.lastUsage.outputTokens)}↑
+                    {chat.lastUsage.cacheReadTokens ? <span className="text-emerald-500 ml-1">({formatTokens(chat.lastUsage.cacheReadTokens)} cached)</span> : null}
+                  </span>
+                </>
               )}
             </div>
-            <span className="font-medium text-[var(--text-secondary)]">${chat.lastUsage.costUsd.toFixed(4)}</span>
+            <div className="flex items-center gap-2">
+              {chat.lastUsage.durationMs && (
+                <span>{(chat.lastUsage.durationMs / 1000).toFixed(1)}s</span>
+              )}
+              {chat.stopReason && chat.stopReason !== 'end_turn' && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 text-[9px]">{chat.stopReason}</span>
+              )}
+              {chat.lastUsage.costUsd !== undefined && (
+                <span className="font-medium text-[var(--text-secondary)]">${chat.lastUsage.costUsd.toFixed(4)}</span>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Timeline (messages + tools interleaved) */}
       <main className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
-        {chat.timeline.length === 0 && !chat.streamingContent ? (
+        {/* Loading indicator */}
+        {chat.isLoading && (
+          <div className="h-full flex flex-col items-center justify-center">
+            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-sm text-[var(--text-secondary)]">Loading conversation...</p>
+          </div>
+        )}
+
+        {!chat.isLoading && chat.timeline.length === 0 && !chat.streamingContent ? (
           <div className="h-full flex flex-col items-center justify-center px-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--accent)] mb-4">
-              <Icon name="spark" className="h-7 w-7 text-white" />
+              <Sparkles className="h-7 w-7 text-white" />
             </div>
             <h3 className="text-body-lg font-medium text-[var(--text-primary)] mb-2">
               {chat.connected ? 'Ask about the codebase' : 'Connecting...'}
@@ -262,15 +484,17 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
           </div>
         ) : (
           <div className="space-y-3">
-            {chat.timeline.map((item) => (
-              <TimelineItemView key={item.id} item={item} />
-            ))}
+            {chat.timeline.map((item, idx) => {
+              const prev = chat.timeline[idx - 1];
+              const isConsecutive = prev?.type === 'assistant' && item.type === 'assistant';
+              return <TimelineItemView key={item.id} item={item} isConsecutive={isConsecutive} />;
+            })}
 
             {/* Streaming content */}
             {chat.streamingContent && (
               <div className="flex gap-3">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]">
-                  <Icon name="spark" className="h-3.5 w-3.5 text-white" />
+                  <Sparkles className="h-3.5 w-3.5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="prose-chat">
@@ -334,11 +558,6 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
             </button>
           )}
         </form>
-
-        <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-[var(--text-tertiary)]">
-          <span><kbd className="px-1.5 py-0.5 bg-[var(--bg-primary)] rounded border border-[var(--border-default)]">Enter</kbd> Send</span>
-          <span><kbd className="px-1.5 py-0.5 bg-[var(--bg-primary)] rounded border border-[var(--border-default)]">Esc</kbd> {chat.isRunning ? 'Abort' : 'Close'}</span>
-        </div>
       </footer>
 
       {/* Session list overlay */}
@@ -434,8 +653,9 @@ function SessionListPanel({
           )}
 
           {sessions.length === 0 && (
-            <div className="text-center text-xs text-[var(--text-tertiary)] py-8">
-              No sessions yet
+            <div className="text-center py-8">
+              <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs text-[var(--text-tertiary)]">Loading sessions...</p>
             </div>
           )}
         </div>
@@ -462,6 +682,12 @@ function SessionItem({ session, isActive, onSelect }: { session: SessionInfo; is
     return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
+  const formatModel = (model?: string) => {
+    if (!model) return null;
+    // claude-sonnet-4-20250514 -> sonnet-4
+    return model.replace('claude-', '').replace(/-\d{8}$/, '');
+  };
+
   return (
     <button
       onClick={() => onSelect(session)}
@@ -471,7 +697,7 @@ function SessionItem({ session, isActive, onSelect }: { session: SessionInfo; is
           : 'bg-[var(--bg-secondary)] border-[var(--border-default)] hover:border-[var(--border-strong)]'
       }`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-0.5">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className={`w-2 h-2 shrink-0 rounded-full ${stateColors[session.state]} ${session.state === 'running' ? 'animate-pulse' : ''}`} />
           <span className="text-sm text-[var(--text-primary)] truncate">
@@ -480,12 +706,55 @@ function SessionItem({ session, isActive, onSelect }: { session: SessionInfo; is
         </div>
         <span className="text-xs text-[var(--text-tertiary)] shrink-0 ml-2">{formatTime(session.startedAt)}</span>
       </div>
+      {/* Model badge */}
+      {session.model && (
+        <div className="pl-4 mt-1">
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] font-mono">
+            {formatModel(session.model)}
+          </span>
+        </div>
+      )}
     </button>
   );
 }
 
+// Thinking block renderer (collapsible)
+function ThinkingBlock({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const preview = content.slice(0, 100) + (content.length > 100 ? '...' : '');
+
+  return (
+    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-amber-600 dark:text-amber-400"
+      >
+        <Brain className="h-3.5 w-3.5" />
+        <span className="font-medium">Thinking</span>
+        {expanded ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
+      </button>
+      {expanded ? (
+        <div className="px-3 pb-3 text-xs text-[var(--text-secondary)] whitespace-pre-wrap max-h-[300px] overflow-auto">
+          {content}
+        </div>
+      ) : (
+        <div className="px-3 pb-2 text-xs text-[var(--text-tertiary)] truncate">
+          {preview}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Format token count
+function formatTokens(count?: number): string {
+  if (!count) return '';
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+  return String(count);
+}
+
 // Timeline item renderer
-function TimelineItemView({ item }: { item: TimelineItem }) {
+function TimelineItemView({ item, isConsecutive }: { item: TimelineItem; isConsecutive?: boolean }) {
   if (item.type === 'user') {
     return (
       <div className="flex justify-end">
@@ -496,15 +765,20 @@ function TimelineItemView({ item }: { item: TimelineItem }) {
     );
   }
 
+  if (item.type === 'thinking' && item.thinking) {
+    return <ThinkingBlock content={item.thinking} />;
+  }
+
   if (item.type === 'tool' && item.tool) {
     return <ToolCallCard tool={item.tool} />;
   }
 
   if (item.type === 'assistant') {
     return (
-      <div className="flex gap-3">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]">
-          <Icon name="spark" className="h-3.5 w-3.5 text-white" />
+      <div className={`flex gap-3 ${isConsecutive ? 'mt-1' : ''}`}>
+        {/* Avatar - hidden for consecutive messages */}
+        <div className={`w-7 shrink-0 ${isConsecutive ? '' : 'flex h-7 items-center justify-center rounded-lg bg-[var(--accent)]'}`}>
+          {!isConsecutive && <Sparkles className="h-3.5 w-3.5 text-white" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="prose-chat">
@@ -513,10 +787,17 @@ function TimelineItemView({ item }: { item: TimelineItem }) {
               {item.content || ''}
             </ReactMarkdown>
           </div>
-          {item.usage?.costUsd !== undefined && (
-            <div className="mt-2 text-[10px] text-[var(--text-tertiary)]">
-              ${item.usage.costUsd.toFixed(4)}
-              {item.usage.durationMs && <span className="ml-2">{(item.usage.durationMs / 1000).toFixed(1)}s</span>}
+          {/* Usage info: cost, tokens, duration */}
+          {item.usage && (item.usage.costUsd !== undefined || item.usage.inputTokens || item.usage.outputTokens) && (
+            <div className="mt-2 flex items-center gap-3 text-[10px] text-[var(--text-tertiary)]">
+              {item.usage.costUsd !== undefined && <span>${item.usage.costUsd.toFixed(4)}</span>}
+              {(item.usage.inputTokens || item.usage.outputTokens) && (
+                <span>
+                  {formatTokens(item.usage.inputTokens)}↓ / {formatTokens(item.usage.outputTokens)}↑
+                  {item.usage.cacheReadTokens ? ` (${formatTokens(item.usage.cacheReadTokens)} cached)` : ''}
+                </span>
+              )}
+              {item.usage.durationMs && <span>{(item.usage.durationMs / 1000).toFixed(1)}s</span>}
             </div>
           )}
         </div>

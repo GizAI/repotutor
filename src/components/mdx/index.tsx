@@ -3,8 +3,25 @@
 import { ReactNode, useEffect, useRef, useState, useId } from 'react';
 import { motion } from 'framer-motion';
 import mermaid from 'mermaid';
-import { Icon, type IconName } from '../ui/Icon';
+import {
+  Sparkles, Zap, ShieldCheck, Network, Layers, Code2, BookOpen,
+  Folder, FolderCode, Terminal as TerminalIcon, GitBranch, type LucideIcon
+} from 'lucide-react';
 import { useThemeContext } from '../layout/ThemeProvider';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  spark: Sparkles,
+  wires: Network,
+  shield: ShieldCheck,
+  bolt: Zap,
+  layers: Layers,
+  code: Code2,
+  book: BookOpen,
+  folder: Folder,
+  'folder-code': FolderCode,
+  terminal: TerminalIcon,
+  gitBranch: GitBranch,
+};
 
 // Heading components with anchor links
 function createHeading(level: 1 | 2 | 3 | 4) {
@@ -222,16 +239,18 @@ export function Callout({ type = 'info', title, children }: { type?: 'info' | 'w
     warning: 'border-[var(--accent-hover)]/30 bg-[var(--accent-hover)]/5',
     tip: 'border-green-500/30 bg-green-500/5',
   };
-  const icons: Record<string, IconName> = {
-    info: 'spark',
-    warning: 'bolt',
-    tip: 'shield',
+  const icons: Record<string, LucideIcon> = {
+    info: Sparkles,
+    warning: Zap,
+    tip: ShieldCheck,
   };
+
+  const IconComponent = icons[type];
 
   return (
     <div className={`my-6 rounded-xl border ${styles[type]} p-4`}>
       <div className="flex items-start gap-3">
-        <Icon name={icons[type]} className="h-5 w-5 text-[var(--accent)] shrink-0 mt-0.5" />
+        <IconComponent className="h-5 w-5 text-[var(--accent)] shrink-0 mt-0.5" />
         <div>
           {title && <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">{title}</div>}
           <div className="text-[11px] text-[var(--text-secondary)]">{children}</div>
@@ -252,11 +271,12 @@ export function Grid({ cols = 2, children }: { cols?: 2 | 3 | 4; children: React
 }
 
 // Feature card for grid items
-export function Feature({ icon, title, children }: { icon?: IconName; title: string; children: ReactNode }) {
+export function Feature({ icon, title, children }: { icon?: string; title: string; children: ReactNode }) {
+  const IconComponent = icon ? ICON_MAP[icon] : null;
   return (
     <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-tertiary)]/70 p-4">
       <div className="flex items-center gap-2 mb-2">
-        {icon && <Icon name={icon} className="h-4 w-4 text-[var(--accent)]" />}
+        {IconComponent && <IconComponent className="h-4 w-4 text-[var(--accent)]" />}
         <span className="text-sm font-semibold text-[var(--text-primary)]">{title}</span>
       </div>
       <div className="text-[11px] text-[var(--text-secondary)]">{children}</div>

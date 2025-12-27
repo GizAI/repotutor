@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from './Icon';
+import { Mic, Loader2 } from 'lucide-react';
 import { transcribeWithWhisper } from '@/lib/whisper';
 
 interface MicButtonProps {
@@ -216,7 +216,7 @@ export function MicButton({ onTranscript, className = '', disabled = false }: Mi
         `}
         title={state === 'recording' ? 'Stop recording' : state === 'transcribing' ? 'Transcribing...' : 'Start voice input'}
       >
-        <Icon name={icon} className={`w-5 h-5 ${state === 'transcribing' ? 'animate-spin' : ''}`} />
+        {icon === 'loader' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
       </button>
 
       {error && (

@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Icon } from '@/components/ui/Icon';
+import { BookOpen } from 'lucide-react';
 
 function LoginForm() {
   const [password, setPassword] = useState('');
@@ -44,7 +44,7 @@ function LoginForm() {
       {/* Logo */}
       <div className="text-center mb-8">
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent)] text-white mb-4">
-          <Icon name="book" className="h-6 w-6" />
+          <BookOpen className="h-6 w-6" />
         </div>
         <h1 className="text-heading-lg text-[var(--text-primary)]">Giz Code</h1>
         <p className="text-caption text-[var(--text-secondary)] mt-2">

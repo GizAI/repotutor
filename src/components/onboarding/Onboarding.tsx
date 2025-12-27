@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Check, GitBranch, User, Mail, Loader2 } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -11,6 +12,7 @@ interface GitConfig {
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+  const { t } = useT();
   const [currentStep, setCurrentStep] = useState(0);
   const [gitName, setGitName] = useState('');
   const [gitEmail, setGitEmail] = useState('');
@@ -40,13 +42,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
     if (currentStep === 0) {
       if (!gitName.trim() || !gitEmail.trim()) {
-        setError('Both git name and email are required');
+        setError(t('onboarding.bothRequired'));
         return;
       }
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(gitEmail)) {
-        setError('Please enter a valid email address');
+        setError(t('onboarding.invalidEmail'));
         return;
       }
 
@@ -104,8 +106,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const steps = [
     {
-      title: 'Git Configuration',
-      description: 'Set up your git identity for commits',
+      title: t('onboarding.gitConfiguration'),
+      description: t('onboarding.gitConfigDescription'),
       icon: GitBranch,
       required: true
     }
@@ -120,9 +122,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <GitBranch className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Git Configuration</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('onboarding.gitConfiguration')}</h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Configure your git identity to ensure proper attribution for your commits
+                {t('onboarding.gitConfigAttributionDescription')}
               </p>
             </div>
 
@@ -130,7 +132,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               <div>
                 <label htmlFor="gitName" className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white mb-2">
                   <User className="w-4 h-4" />
-                  Git Name <span className="text-red-500">*</span>
+                  {t('onboarding.gitName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -138,19 +140,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   value={gitName}
                   onChange={(e) => setGitName(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="John Doe"
+                  placeholder={t('onboarding.gitNamePlaceholder')}
                   required
                   disabled={isSubmitting}
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  This will be used as: git config --global user.name
+                  {t('onboarding.gitNameHint')}
                 </p>
               </div>
 
               <div>
                 <label htmlFor="gitEmail" className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white mb-2">
                   <Mail className="w-4 h-4" />
-                  Git Email <span className="text-red-500">*</span>
+                  {t('onboarding.gitEmail')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
@@ -158,12 +160,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   value={gitEmail}
                   onChange={(e) => setGitEmail(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="john@example.com"
+                  placeholder={t('onboarding.gitEmailPlaceholder')}
                   required
                   disabled={isSubmitting}
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  This will be used as: git config --global user.email
+                  {t('onboarding.gitEmailHint')}
                 </p>
               </div>
             </div>
@@ -209,7 +211,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                       {step.title}
                     </p>
                     {step.required && (
-                      <span className="text-xs text-red-500">Required</span>
+                      <span className="text-xs text-red-500">{t('common.required')}</span>
                     )}
                   </div>
                 </div>
@@ -242,7 +244,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
             >
               <ChevronLeft className="w-4 h-4" />
-              Previous
+              {t('common.previous')}
             </button>
 
             <div className="flex items-center gap-3">
@@ -255,11 +257,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Saving...
+                      {t('common.saving')}
                     </>
                   ) : (
                     <>
-                      Next
+                      {t('common.next')}
                       <ChevronRight className="w-4 h-4" />
                     </>
                   )}
@@ -273,12 +275,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Completing...
+                      {t('common.completing')}
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4" />
-                      Complete Setup
+                      {t('onboarding.completeSetup')}
                     </>
                   )}
                 </button>

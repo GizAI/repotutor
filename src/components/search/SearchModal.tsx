@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 
 interface SearchResult {
   path: string;
@@ -25,6 +26,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const { t } = useT();
 
   // Focus input when modal opens
   useEffect(() => {
@@ -127,7 +129,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="파일이나 내용 검색..."
+              placeholder={t('search.placeholder')}
               className="flex-1 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-secondary)] text-base outline-none"
             />
             <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded border border-[var(--border-default)]">
@@ -140,14 +142,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             {loading && (
               <div className="flex items-center justify-center py-8 text-[var(--text-secondary)]">
                 <LoadingSpinner />
-                <span className="ml-2 text-sm">검색 중...</span>
+                <span className="ml-2 text-sm">{t('search.searching')}</span>
               </div>
             )}
 
             {!loading && query && results.length === 0 && (
               <div className="py-12 text-center text-[var(--text-secondary)]">
                 <div className="text-3xl mb-2">🔍</div>
-                <div className="text-sm">검색 결과가 없습니다</div>
+                <div className="text-sm">{t('search.noResults')}</div>
               </div>
             )}
 
@@ -202,7 +204,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
             {!query && (
               <div className="py-8 text-center text-[var(--text-secondary)]">
-                <div className="text-sm mb-4">빠른 검색</div>
+                <div className="text-sm mb-4">{t('search.quickSearch')}</div>
                 <div className="flex flex-wrap justify-center gap-2 px-4">
                   {['README', 'package.json', 'prisma', '.env'].map(term => (
                     <button
@@ -223,15 +225,15 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <kbd className="px-1 py-0.5 bg-[var(--bg-tertiary)] rounded">↑↓</kbd>
-                이동
+                {t('search.navigate')}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1 py-0.5 bg-[var(--bg-tertiary)] rounded">↵</kbd>
-                열기
+                {t('search.open')}
               </span>
             </div>
             <div>
-              {results.length > 0 && `${results.length}개 결과`}
+              {results.length > 0 && t('search.results', { count: results.length })}
             </div>
           </div>
         </motion.div>

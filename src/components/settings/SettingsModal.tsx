@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Icon } from '@/components/ui/Icon';
+import { X, Moon, Sun, Monitor } from 'lucide-react';
 import { useThemeContext } from '@/components/layout/ThemeProvider';
+import { useT } from '@/lib/i18n';
 
 type TabType = 'general' | 'appearance' | 'editor' | 'ai';
 
@@ -13,6 +14,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  const { t } = useT();
   const { themeMode, setTheme } = useThemeContext();
   const [activeTab, setActiveTab] = useState<TabType>('general');
 
@@ -87,10 +89,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
-    { id: 'general', label: 'General', icon: 'settings' },
-    { id: 'appearance', label: 'Appearance', icon: 'palette' },
-    { id: 'editor', label: 'Editor', icon: 'code' },
-    { id: 'ai', label: 'AI', icon: 'spark' },
+    { id: 'general', label: t('settings.general'), icon: 'settings' },
+    { id: 'appearance', label: t('settings.appearance'), icon: 'palette' },
+    { id: 'editor', label: t('settings.editor'), icon: 'code' },
+    { id: 'ai', label: t('settings.ai'), icon: 'spark' },
   ];
 
   return (
@@ -110,12 +112,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)]">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Settings</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t('settings.title')}</h2>
             <button
               onClick={onClose}
               className="p-2 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]"
             >
-              <Icon name="close" className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -142,11 +144,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {activeTab === 'general' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">Limits</h3>
+                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">{t('settings.limits')}</h3>
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm text-[var(--text-secondary)] mb-2">
-                          Max Turns per Session
+                          {t('settings.maxTurns')}
                         </label>
                         <input
                           type="number"
@@ -157,12 +159,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-default)] text-sm"
                         />
                         <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                          Maximum number of conversation turns before session limit
+                          {t('settings.maxTurnsDescription')}
                         </p>
                       </div>
                       <div>
                         <label className="block text-sm text-[var(--text-secondary)] mb-2">
-                          Budget Limit (USD)
+                          {t('settings.budgetLimit')}
                         </label>
                         <input
                           type="number"
@@ -173,7 +175,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-default)] text-sm"
                         />
                         <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                          Warning threshold for session costs
+                          {t('settings.budgetLimitDescription')}
                         </p>
                       </div>
                     </div>
@@ -184,7 +186,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {activeTab === 'appearance' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">Theme</h3>
+                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">{t('settings.theme')}</h3>
                     <div className="grid grid-cols-3 gap-3">
                       {(['dark', 'light', 'system'] as const).map((theme) => (
                         <button
@@ -196,10 +198,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                               : 'border-[var(--border-default)] hover:border-[var(--border-strong)]'
                           }`}
                         >
-                          <Icon
-                            name={theme === 'dark' ? 'moon' : theme === 'light' ? 'sun' : 'monitor'}
-                            className="w-6 h-6"
-                          />
+                          {theme === 'dark' ? <Moon className="w-6 h-6" /> : theme === 'light' ? <Sun className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
                           <span className="text-sm capitalize">{theme}</span>
                         </button>
                       ))}
@@ -211,10 +210,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {activeTab === 'editor' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">Code Editor</h3>
+                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">{t('settings.codeEditor')}</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm text-[var(--text-secondary)] mb-2">Theme</label>
+                        <label className="block text-sm text-[var(--text-secondary)] mb-2">{t('settings.theme')}</label>
                         <select
                           value={editorTheme}
                           onChange={(e) => setEditorTheme(e.target.value)}
@@ -228,7 +227,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       </div>
                       <div>
                         <label className="block text-sm text-[var(--text-secondary)] mb-2">
-                          Font Size: {editorFontSize}px
+                          {t('settings.fontSize')}: {editorFontSize}px
                         </label>
                         <input
                           type="range"
@@ -240,7 +239,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-[var(--text-secondary)]">Word Wrap</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('settings.wordWrap')}</span>
                         <button
                           onClick={() => setEditorWordWrap(!editorWordWrap)}
                           className={`w-12 h-6 rounded-full transition-colors ${
@@ -255,7 +254,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-[var(--text-secondary)]">Show Minimap</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('settings.showMinimap')}</span>
                         <button
                           onClick={() => setEditorMinimap(!editorMinimap)}
                           className={`w-12 h-6 rounded-full transition-colors ${
@@ -277,10 +276,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {activeTab === 'ai' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">AI Settings</h3>
+                    <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">{t('settings.aiSettings')}</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm text-[var(--text-secondary)] mb-2">Default Model</label>
+                        <label className="block text-sm text-[var(--text-secondary)] mb-2">{t('settings.defaultModel')}</label>
                         <select
                           value={defaultModel}
                           onChange={(e) => setDefaultModel(e.target.value)}
@@ -292,8 +291,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-sm text-[var(--text-secondary)]">Extended Thinking</span>
-                          <p className="text-xs text-[var(--text-tertiary)]">Enable AI thinking blocks</p>
+                          <span className="text-sm text-[var(--text-secondary)]">{t('settings.extendedThinking')}</span>
+                          <p className="text-xs text-[var(--text-tertiary)]">{t('settings.extendedThinkingDescription')}</p>
                         </div>
                         <button
                           onClick={() => setEnableThinking(!enableThinking)}

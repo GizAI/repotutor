@@ -18,6 +18,7 @@ export function useTerminal() {
   });
   const dataHandlerRef = useRef<((data: string) => void) | null>(null);
   const exitHandlerRef = useRef<((code: number) => void) | null>(null);
+  const bufferHandlerRef = useRef<((data: string) => void) | null>(null);
   const wantsConnectionRef = useRef(false);
 
   // Subscribe to terminal channel
@@ -78,6 +79,11 @@ export function useTerminal() {
     exitHandlerRef.current = handler;
   }, []);
 
+  // Set buffer handler (for session persistence - receives scrollback on reconnect)
+  const onBuffer = useCallback((handler: (data: string) => void) => {
+    bufferHandlerRef.current = handler;
+  }, []);
+
   // Socket event handlers
   useEffect(() => {
     if (!socket) return;
@@ -94,14 +100,20 @@ export function useTerminal() {
       exitHandlerRef.current?.(data.code);
     };
 
+    const handleBuffer = (data: string) => {
+      bufferHandlerRef.current?.(data);
+    };
+
     socket.on('terminal:ready', handleReady);
     socket.on('terminal:data', handleData);
     socket.on('terminal:exit', handleExit);
+    socket.on('terminal:buffer', handleBuffer);
 
     return () => {
       socket.off('terminal:ready', handleReady);
       socket.off('terminal:data', handleData);
       socket.off('terminal:exit', handleExit);
+      socket.off('terminal:buffer', handleBuffer);
     };
   }, [socket]);
 
@@ -116,5 +128,6 @@ export function useTerminal() {
     inject,
     onData,
     onExit,
+    onBuffer,
   };
 }

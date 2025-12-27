@@ -3,14 +3,13 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
+import { getCurrentProjectPath } from '@/lib/giz-config';
 
 const execAsync = promisify(exec);
 
 // Get the repository root path
 function getRepoPath(): string {
-  // Default to current working directory or configured path
-  const repoPath = process.env.REPO_PATH || process.cwd();
-  return repoPath;
+  return getCurrentProjectPath() || process.cwd();
 }
 
 export async function GET(request: NextRequest) {

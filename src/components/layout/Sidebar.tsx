@@ -4,8 +4,25 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Icon, type IconName } from '../ui/Icon';
+import {
+  X, Search, Sparkles, Network, ShieldCheck, Zap, Layers, Code2, BookOpen,
+  Folder, FolderCode, Terminal, GitBranch, type LucideIcon
+} from 'lucide-react';
 import type { DocMeta } from '@/lib/mdx';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  spark: Sparkles,
+  wires: Network,
+  shield: ShieldCheck,
+  bolt: Zap,
+  layers: Layers,
+  code: Code2,
+  book: BookOpen,
+  folder: Folder,
+  'folder-code': FolderCode,
+  terminal: Terminal,
+  gitBranch: GitBranch,
+};
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -56,14 +73,14 @@ export function Sidebar({ isOpen = true, onClose, docs = [] }: SidebarProps) {
                 onClick={onClose}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-primary)] transition-colors"
               >
-                <Icon name="close" className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Search */}
             <div className="mb-4">
               <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2">
-                <Icon name="search" className="h-4 w-4 text-[var(--text-tertiary)]" />
+                <Search className="h-4 w-4 text-[var(--text-tertiary)]" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -125,6 +142,7 @@ interface NavItemProps {
 }
 
 function NavItem({ section, active, onClick }: NavItemProps) {
+  const IconComponent = ICON_MAP[section.icon] || Folder;
   return (
     <Link
       href={`/${section.slug}`}
@@ -135,8 +153,7 @@ function NavItem({ section, active, onClick }: NavItemProps) {
           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
       }`}
     >
-      <Icon
-        name={section.icon as IconName}
+      <IconComponent
         className={`h-4 w-4 shrink-0 ${active ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`}
       />
       <div className="flex-1 min-w-0">

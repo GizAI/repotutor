@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
+import { getCurrentProjectPath } from '@/lib/giz-config';
 
 const execAsync = promisify(exec);
 
@@ -9,8 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     const { files } = await request.json();
 
-    // Get project root from env or use current directory
-    const projectRoot = process.env.PROJECT_ROOT || process.cwd();
+    // Get project root from current project config
+    const projectRoot = getCurrentProjectPath() || process.cwd();
 
     // Get the diff for changed files
     let diff = '';

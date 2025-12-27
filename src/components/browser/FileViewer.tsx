@@ -1,10 +1,26 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { AnimatedCard, Icon } from '@/components/ui';
+import { motion } from 'framer-motion';
+import { List, X } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { MarkdownViewer, parseFrontmatter, type HeadingItem, type DocFrontmatter } from './MarkdownViewer';
 import { DocNavigation, DocHeader, TableOfContents, type DocLink } from './DocNavigation';
 import { useThemeContext } from '@/components/layout/ThemeProvider';
+
+// Animated Card component
+function AnimatedCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+    >
+      <Card className={`p-4 ${className}`}>{children}</Card>
+    </motion.div>
+  );
+}
 
 interface FileViewerProps {
   path: string;
@@ -465,7 +481,7 @@ function MarkdownLayout({
                 className="hidden lg:flex items-center gap-1.5 text-[10px] px-2 py-1 rounded border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
                 title={isTocCollapsed ? 'Show table of contents' : 'Hide table of contents'}
               >
-                <Icon name="toc" className="h-3 w-3" />
+                <List className="h-3 w-3" />
                 <span>{isTocCollapsed ? 'Show TOC' : 'Hide TOC'}</span>
               </button>
             )}
@@ -515,7 +531,7 @@ function MarkdownLayout({
                     className="flex items-center justify-center w-5 h-5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
                     title="Hide table of contents"
                   >
-                    <Icon name="close" className="h-3 w-3" />
+                    <X className="h-3 w-3" />
                   </button>
                 </div>
                 <TableOfContents headings={headings} />
@@ -537,7 +553,7 @@ function MarkdownLayout({
               transition-all shadow-lg"
             title="Show table of contents"
           >
-            <Icon name="toc" className="h-4 w-4 mb-1" />
+            <List className="h-4 w-4 mb-1" />
             <span className="text-[9px] font-medium" style={{ writingMode: 'vertical-rl' }}>TOC</span>
           </button>
         )}

@@ -187,7 +187,7 @@ export async function GET(
       session: {
         id,
         mode: 'claude-code',
-        title: messages[0]?.content.slice(0, 50) || '(제목 없음)',
+        title: messages[0]?.content.slice(0, 50) || '(Untitled)',
         messages,
         metadata,
         createdAt: stats.birthtime.toISOString(),

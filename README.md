@@ -17,10 +17,10 @@
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash -s -- --repo ~/myproject
 ```
 
-Or with options:
+With options:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash -s -- \
@@ -30,18 +30,14 @@ curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash -
   --api-key sk-ant-xxx
 ```
 
-### Install Options
-
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--repo PATH` | Target repository to explore | (required) |
+| `--repo PATH` | Target repository | (required) |
 | `--password PASS` | Password for web access | (none) |
-| `--port PORT` | Port to run on | 3000 |
-| `--api-key KEY` | Anthropic API key for AI chat | (none) |
+| `--port PORT` | Gateway port | 3000 |
+| `--api-key KEY` | Anthropic API key | (none) |
 | `--name NAME` | PM2 process name | giz-code |
 | `--dir PATH` | Installation directory | ~/giz-code |
-| `--no-pm2` | Don't use PM2, just build | false |
-| `--dev` | Development mode (skip build) | false |
 
 ---
 
@@ -49,48 +45,166 @@ curl -fsSL https://raw.githubusercontent.com/GizAI/code/main/install.sh | bash -
 
 | Tab | Description |
 |-----|-------------|
-| **Browse** | File tree, code highlighting, image/PDF preview |
-| **Chat** | AI chatbot for code Q&A, analysis |
-| **Terminal** | Web terminal for command execution |
-| **Desktop** | VNC remote desktop (TigerVNC) |
+| **Browse** | File tree, syntax highlighting, image/PDF preview |
+| **Chat** | AI chatbot for code Q&A |
+| **Terminal** | Web terminal with PTY |
+| **Desktop** | VNC remote desktop |
 
-## Manual Installation
+---
+
+## Development
 
 ```bash
-# Clone
 git clone https://github.com/GizAI/code.git
 cd code
-
-# Install
 npm install
 
-# Configure
 cp .env.example .env.local
-# Edit .env.local: set REPO_PATH and API key
+# Edit: REPO_PATH, ANTHROPIC_API_KEY
 
-# Run
-npm run dev      # Development
-npm run build && npm start  # Production
+npm run dev  # http://localhost:6001
 ```
 
-## Environment Variables
+### Port Convention
 
-`.env.local`:
+| Mode | Next.js | Gateway |
+|------|---------|---------|
+| Development | 3000 (internal) | 6001 |
+| Production | 7001 | 7002 |
+
+Gateway handles all traffic (HTTP proxy + WebSocket).
+
+---
+
+## Production Build
 
 ```bash
-# Repository to explore (required)
-REPO_PATH=/path/to/your/repository
+npm run build  # Includes static file copy for standalone
+npm start      # Or use PM2
+```
 
-# AI chatbot API key (optional)
-ANTHROPIC_API_KEY=sk-ant-...
+### PM2 Setup
 
-# Password protection (optional)
-REPOTUTOR_PASSWORD=your-secret
+```bash
+# Using ecosystem config
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup  # Auto-start on reboot
+```
 
-# VNC Desktop (optional)
+---
+
+## Server Deployment
+
+### 1. Sync Code
+
+```bash
+rsync -avz --exclude node_modules --exclude .next --exclude .git --exclude .env.local \
+  ~/code/ user@server:~/giz-code/
+```
+
+### 2. Server Setup
+
+```bash
+ssh user@server
+cd ~/giz-code
+npm install
+npm run build
+
+# Configure
+cat > .env.local << EOF
+REPO_PATH=/path/to/repo
+PORT=7002
+NEXT_PORT=7001
+REPOTUTOR_PASSWORD=secret
+ANTHROPIC_API_KEY=sk-ant-xxx
+EOF
+
+# PM2
+pm2 start ecosystem.config.js
+pm2 save && pm2 startup
+```
+
+### 3. Nginx (Optional)
+
+```nginx
+server {
+    listen 80;
+    server_name code.example.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name code.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/code.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/code.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:7002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+}
+```
+
+```bash
+sudo certbot --nginx -d code.example.com
+```
+
+---
+
+## VNC Desktop
+
+Install TigerVNC for Desktop feature:
+
+```bash
+sudo apt install tigervnc-standalone-server
+
+# Start VNC
+Xvnc :4 -rfbport 5904 -geometry 1920x1080 -depth 24 \
+     -SecurityTypes None -AcceptSetDesktopSize=1 &
+export DISPLAY=:4
+```
+
+Configure in `.env.local`:
+
+```bash
 VNC_PORT=5904
 VNC_DISPLAY=:4
 ```
+
+---
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `REPO_PATH` | Target repository path | Yes |
+| `ANTHROPIC_API_KEY` | Claude API key | For Chat |
+| `REPOTUTOR_PASSWORD` | Password protection | No |
+| `PORT` | Gateway port | No (3000) |
+| `NEXT_PORT` | Next.js port | No (3000) |
+| `VNC_PORT` | VNC server port | For Desktop |
+| `VNC_DISPLAY` | X display | For Desktop |
+
+---
+
+## Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| npm install fails | Dependency conflict | Use `pnpm install` |
+| node-pty build fails | Missing make | `apt install build-essential` |
+| Blank page on 7002 | Static files missing | `npm run build` (includes postbuild) |
+| Gateway uses wrong port | Missing .env.local | Set PORT in .env.local |
+| VNC connection refused | Auth mismatch | Use `-SecurityTypes None` |
+
+---
 
 ## Architecture
 
@@ -99,7 +213,7 @@ VNC_DISPLAY=:4
 │             Gateway (PORT)                  │
 │  ┌─────────────┐  ┌──────────────────────┐  │
 │  │   Next.js   │  │   WebSocket Proxy    │  │
-│  │   (3000)    │  │  - Socket.IO         │  │
+│  │   Proxy     │  │  - Socket.IO (PTY)   │  │
 │  │             │  │  - VNC WebSocket     │  │
 │  └─────────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────┘
@@ -107,52 +221,25 @@ VNC_DISPLAY=:4
          ▼                    ▼
    ┌──────────┐        ┌──────────┐
    │ REPO_PATH │        │ TigerVNC │
-   │  (files)  │        │  (5904)  │
+   │  (files)  │        │  (VNC)   │
    └──────────┘        └──────────┘
 ```
 
-## PM2 Commands
-
-```bash
-# View logs
-pm2 logs giz-code
-
-# Restart
-pm2 restart giz-code
-
-# Stop
-pm2 stop giz-code
-
-# Status
-pm2 status
-```
-
-## VNC Desktop Setup
-
-For Desktop feature, install TigerVNC:
-
-```bash
-# Ubuntu/Debian
-sudo apt install tigervnc-standalone-server
-
-# Start VNC
-Xvnc :4 -rfbport 5904 -geometry 1920x1080 -depth 24 \
-     -SecurityTypes VncAuth -AcceptSetDesktopSize=1
-```
+---
 
 ## Tech Stack
 
 - **Frontend**: Next.js 15, React 19, Tailwind CSS
 - **Backend**: Node.js, Socket.IO
 - **Terminal**: xterm.js, node-pty
-- **VNC**: novnc-next
+- **VNC**: novnc-next, TigerVNC
 - **AI**: Anthropic Claude API
+
+---
 
 ## License
 
 MIT License - [LICENSE](LICENSE)
-
----
 
 <div align="center">
   <sub>Built by <a href="https://giz.ai">GizAI</a></sub>

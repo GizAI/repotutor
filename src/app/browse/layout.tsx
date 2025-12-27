@@ -5,12 +5,14 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileTree, BreadcrumbNav } from '@/components/browser';
 import { ChatBot } from '@/components/chat';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Menu, PanelLeft, Search, Terminal, Monitor, GitBranch, X, Sparkles, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useGlobal } from '@/components/layout';
 import { useThemeContext } from '@/components/layout/ThemeProvider';
 import { RepoSelector } from '@/components/layout/RepoSelector';
+import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import type { ThemeMode } from '@/lib/themes';
 import type { FileTree as FileTreeType } from '@/lib/files/reader';
 import { BrowseContext } from './BrowseContext';
@@ -18,15 +20,15 @@ import { BrowseContext } from './BrowseContext';
 // Lazy load terminal components
 const WebTerminal = lazy(() => import('@/components/terminal/WebTerminal').then(m => ({ default: m.WebTerminal })));
 const DesktopViewer = lazy(() => import('@/components/terminal/DesktopViewer').then(m => ({ default: m.DesktopViewer })));
+const GitPanel = lazy(() => import('@/components/git/GitPanel').then(m => ({ default: m.GitPanel })));
 
-const THEME_ICONS: Record<ThemeMode, IconName> = {
-  dark: 'moon',
-  light: 'sun',
-  system: 'monitor',
+const THEME_ICONS: Record<ThemeMode, LucideIcon> = {
+  dark: Moon,
+  light: Sun,
+  system: Monitor,
 };
 
-type BottomTab = 'terminal' | 'desktop';
-type MobileTab = 'browse' | 'chat' | 'terminal' | 'desktop';
+type BottomTab = 'terminal' | 'desktop' | 'git';
 
 export default function BrowseLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -34,18 +36,14 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   // URL에서 초기 상태 읽기
-  const initialMobileTab = useMemo(() => {
-    const tab = searchParams.get('tab');
-    return (tab && ['browse', 'chat', 'terminal', 'desktop'].includes(tab)) ? tab as MobileTab : 'browse';
-  }, []);
-
   const initialBottomTab = useMemo(() => {
     const panel = searchParams.get('panel');
-    return (panel && ['terminal', 'desktop'].includes(panel)) ? panel as BottomTab : 'terminal';
+    return (panel && ['terminal', 'desktop', 'git'].includes(panel)) ? panel as BottomTab : 'terminal';
   }, []);
 
   const initialBottomOpen = useMemo(() => searchParams.get('panelOpen') === '1', []);
   const initialChatOpen = useMemo(() => searchParams.get('chat') !== '0', []); // 기본값 true
+  const initialTerminalSession = useMemo(() => searchParams.get('terminalSession') || undefined, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [entries, setEntries] = useState<FileTreeType[] | null>(null);
@@ -54,9 +52,9 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
   const [repoName, setRepoName] = useState('');
   const [bottomTab, setBottomTab] = useState<BottomTab>(initialBottomTab);
   const [isBottomOpen, setIsBottomOpen] = useState(initialBottomOpen);
-  const [mobileTab, setMobileTab] = useState<MobileTab>(initialMobileTab);
   const { openSearch } = useGlobal();
   const { themeMode, cycleTheme, mounted } = useThemeContext();
+  const { t } = useT();
 
   // URL 상태 동기화 함수
   const updateURL = useCallback((updates: Record<string, string | null>) => {
@@ -71,7 +69,6 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
     });
 
     // 기본값이면 URL에서 제거 (깔끔한 URL 유지)
-    if (params.get('tab') === 'browse') params.delete('tab');
     if (params.get('panel') === 'terminal') params.delete('panel');
     if (params.get('panelOpen') === '0') params.delete('panelOpen');
     if (params.get('chat') === '1') params.delete('chat');
@@ -79,12 +76,6 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
     const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
     router.replace(newUrl, { scroll: false });
   }, [pathname, searchParams, router]);
-
-  // 모바일 탭 변경 (URL 동기화 포함)
-  const changeMobileTab = useCallback((tab: MobileTab) => {
-    setMobileTab(tab);
-    updateURL({ tab: tab === 'browse' ? null : tab }); // browse가 기본값
-  }, [updateURL]);
 
   // 데스크톱 하단 패널 탭 변경 (URL 동기화 포함)
   const changeBottomTab = useCallback((tab: BottomTab) => {
@@ -152,6 +143,11 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
       setIsBottomOpen(true);
     }
     updateURL({ panel: tab, panelOpen: '1' });
+  }, [updateURL]);
+
+  // Terminal session change handler
+  const handleTerminalSessionChange = useCallback((sessionId: string | null) => {
+    updateURL({ terminalSession: sessionId });
   }, [updateURL]);
 
   // 현재 프로젝트 이름 가져오기
@@ -252,7 +248,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // 모바일: 4탭 (Browse, Chat, Terminal, Desktop) + 햄버거 사이드바
+  // 모바일: Browse 탭만 표시 (다른 탭은 별도 라우트)
   if (isMobile) {
     return (
       <BrowseContext.Provider value={{ entries, currentPath }}>
@@ -264,26 +260,26 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 onClick={() => setSidebarOpen(true)}
                 className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--text-secondary)]"
               >
-                <Icon name="menu" className="h-5 w-5" />
+                <Menu className="h-5 w-5" />
               </button>
               <RepoSelector />
               <button
                 onClick={openSearch}
                 className="flex items-center gap-2 px-2.5 py-1.5 flex-1 max-w-[160px] text-sm text-[var(--text-secondary)] bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-lg"
               >
-                <Icon name="search" className="h-4 w-4" />
+                <Search className="h-4 w-4" />
                 <span className="truncate">Search</span>
               </button>
               <button
                 onClick={cycleTheme}
                 className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--text-secondary)]"
               >
-                {mounted && <Icon name={THEME_ICONS[themeMode]} className="h-4 w-4" />}
+                {mounted && (() => { const ThemeIcon = THEME_ICONS[themeMode]; return <ThemeIcon className="h-4 w-4" />; })()}
               </button>
             </div>
           </header>
 
-          {/* Sidebar Overlay */}
+          {/* File Tree Sidebar Overlay */}
           {sidebarOpen && (
             <div className="fixed inset-0 z-50 flex">
               <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
@@ -291,7 +287,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 <div className="p-3 border-b border-[var(--border-default)] flex items-center justify-between">
                   <span className="font-medium text-sm text-[var(--text-primary)]">{repoName || 'Files'}</span>
                   <button onClick={() => setSidebarOpen(false)} className="p-1 rounded text-[var(--text-secondary)]">
-                    <Icon name="close" className="h-4 w-4" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="p-2">
@@ -299,7 +295,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                     <FileTree entries={entries} onNavigate={() => setSidebarOpen(false)} />
                   ) : (
                     <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">
-                      {entries === null ? 'Loading...' : 'No files'}
+                      {entries === null ? t('common.loading') : t('file.empty')}
                     </div>
                   )}
                 </div>
@@ -307,82 +303,18 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
             </div>
           )}
 
-          {/* Main Content */}
+          {/* Main Content - Browse Only */}
           <main className="flex-1 min-h-0 overflow-hidden">
-            {mobileTab === 'browse' && (
-              <div className="h-full overflow-y-auto p-4">
-                <div className="mb-3 overflow-x-auto">
-                  <BreadcrumbNav path={currentPath} repoName={repoName} />
-                </div>
-                {children}
+            <div className="h-full overflow-y-auto p-4">
+              <div className="mb-3 overflow-x-auto">
+                <BreadcrumbNav path={currentPath} repoName={repoName} />
               </div>
-            )}
-
-            {mobileTab === 'chat' && (
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
-                <ChatBot
-                  isOpen={true}
-                  onClose={() => changeMobileTab('browse')}
-                  currentPath={currentPath}
-                  fullScreen
-                />
-              </Suspense>
-            )}
-
-            {mobileTab === 'terminal' && (
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
-                <WebTerminal className="h-full" />
-              </Suspense>
-            )}
-
-            {mobileTab === 'desktop' && (
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
-                <DesktopViewer className="h-full" />
-              </Suspense>
-            )}
+              {children}
+            </div>
           </main>
 
-          {/* Bottom Tab Bar - 4탭 */}
-          <nav className="shrink-0 h-14 border-t border-[var(--border-default)] bg-[var(--bg-secondary)]">
-            <div className="flex h-full items-center justify-around">
-              <button
-                onClick={() => changeMobileTab('browse')}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
-                  mobileTab === 'browse' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
-                }`}
-              >
-                <Icon name="code" className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Browse</span>
-              </button>
-              <button
-                onClick={() => changeMobileTab('chat')}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
-                  mobileTab === 'chat' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
-                }`}
-              >
-                <Icon name="spark" className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Chat</span>
-              </button>
-              <button
-                onClick={() => changeMobileTab('terminal')}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
-                  mobileTab === 'terminal' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
-                }`}
-              >
-                <Icon name="terminal" className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Terminal</span>
-              </button>
-              <button
-                onClick={() => changeMobileTab('desktop')}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full ${
-                  mobileTab === 'desktop' ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
-                }`}
-              >
-                <Icon name="monitor" className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Desktop</span>
-              </button>
-            </div>
-          </nav>
+          {/* Bottom Tab Bar */}
+          <MobileTabBar />
         </div>
       </BrowseContext.Provider>
     );
@@ -402,7 +334,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 className="flex items-center justify-center h-8 w-8 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
                 title="Toggle sidebar (⌘B)"
               >
-                <Icon name={isSidebarCollapsed ? 'menu' : 'sidebar'} className="h-4 w-4" />
+                {isSidebarCollapsed ? <Menu className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
               </button>
               <RepoSelector />
             </div>
@@ -412,7 +344,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
               onClick={openSearch}
               className="flex items-center gap-2 px-3 py-1.5 mx-4 flex-1 max-w-md text-left text-sm text-[var(--text-secondary)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border-default)] rounded-lg transition-colors"
             >
-              <Icon name="search" className="h-4 w-4 text-[var(--text-tertiary)]" />
+              <Search className="h-4 w-4 text-[var(--text-tertiary)]" />
               <span className="flex-1">Search files...</span>
               <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--bg-primary)] text-[var(--text-tertiary)] rounded border border-[var(--border-default)]">
                 ⌘K
@@ -430,7 +362,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 }`}
                 title="Toggle Panel (⌘`)"
               >
-                <Icon name="terminal" className="h-4 w-4" />
+                <Terminal className="h-4 w-4" />
               </button>
               <div className="w-px h-4 bg-[var(--border-default)]" />
               <button
@@ -438,7 +370,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
                 title={`Theme: ${themeMode}`}
               >
-                {mounted && <Icon name={THEME_ICONS[themeMode]} className="h-4 w-4" />}
+                {mounted && (() => { const ThemeIcon = THEME_ICONS[themeMode]; return <ThemeIcon className="h-4 w-4" />; })()}
               </button>
               <button
                 onClick={toggleChat}
@@ -449,7 +381,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                 }`}
                 title="Toggle AI Chat (⌘/)"
               >
-                <Icon name="spark" className="h-4 w-4" />
+                <Sparkles className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -476,9 +408,9 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                     {entries && entries.length > 0 ? (
                       <FileTree entries={entries} onNavigate={handleNavigate} />
                     ) : entries === null ? (
-                      <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">Loading...</div>
+                      <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">{t('common.loading')}</div>
                     ) : (
-                      <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">No files found</div>
+                      <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">{t('file.empty')}</div>
                     )}
                   </div>
                 </aside>
@@ -548,7 +480,7 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  <Icon name="terminal" className="h-3.5 w-3.5" />
+                  <Terminal className="h-3.5 w-3.5" />
                   Terminal
                 </button>
                 <button
@@ -559,8 +491,19 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  <Icon name="monitor" className="h-3.5 w-3.5" />
+                  <Monitor className="h-3.5 w-3.5" />
                   Desktop
+                </button>
+                <button
+                  onClick={() => changeBottomTab('git')}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded transition-colors ${
+                    bottomTab === 'git'
+                      ? 'bg-[var(--bg-primary)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
+                  Git
                 </button>
                 <div className="flex-1" />
                 <button
@@ -568,15 +511,22 @@ export default function BrowseLayout({ children }: { children: React.ReactNode }
                   className="flex items-center justify-center w-6 h-6 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
                   title="Close panel"
                 >
-                  <Icon name="close" className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
 
               {/* Tab Content */}
               <div className="flex-1 min-h-0">
-                <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">Loading...</div>}>
-                  {bottomTab === 'terminal' && <WebTerminal className="h-full" />}
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-[var(--text-secondary)]">{t('common.loading')}</div>}>
+                  {bottomTab === 'terminal' && (
+                    <WebTerminal
+                      className="h-full"
+                      sessionId={initialTerminalSession}
+                      onSessionChange={handleTerminalSessionChange}
+                    />
+                  )}
                   {bottomTab === 'desktop' && <DesktopViewer className="h-full" />}
+                  {bottomTab === 'git' && <GitPanel isOpen={true} onClose={toggleBottom} embedded />}
                 </Suspense>
               </div>
             </div>

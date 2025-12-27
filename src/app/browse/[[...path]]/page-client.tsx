@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FileViewer } from '@/components/browser';
-import { Card } from '@/components/ui';
-import { Icon } from '@/components/ui/Icon';
+import { Card } from '@/components/ui/card';
+import { Folder, FileText, ChevronRight } from 'lucide-react';
 import { useBrowseContext } from '../BrowseContext';
 import type { FileTree as FileTreeType } from '@/lib/files/reader';
 
@@ -111,7 +111,7 @@ export function BrowsePageClient({ repoName }: BrowsePageClientProps) {
   // Content rendering
   if (loading) {
     return (
-      <Card padding="lg">
+      <Card className="p-6">
         <div className="flex items-center justify-center py-12 lg:py-20">
           <div className="text-sm text-[var(--text-secondary)]">Loading...</div>
         </div>
@@ -128,10 +128,10 @@ export function BrowsePageClient({ repoName }: BrowsePageClientProps) {
   }
 
   return (
-    <Card padding="lg">
+    <Card className="p-6">
       <div className="flex flex-col items-center justify-center py-12 lg:py-20 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-tertiary)] mb-4">
-          <Icon name="folder" className="h-6 w-6 text-[var(--text-tertiary)]" />
+          <Folder className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="text-body-lg font-medium text-[var(--text-primary)]">Path not found</div>
         <div className="text-caption text-[var(--text-secondary)] mt-2">
@@ -177,10 +177,10 @@ function DirectoryView({ entries, currentPath, repoName }: DirectoryViewProps) {
 
   if (directChildren.length === 0) {
     return (
-      <Card padding="lg">
+      <Card className="p-6">
         <div className="flex flex-col items-center justify-center py-12 lg:py-20 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-tertiary)] mb-4">
-            <Icon name="folder" className="h-6 w-6 text-[var(--text-tertiary)]" />
+            <Folder className="h-6 w-6 text-muted-foreground" />
           </div>
           <div className="text-body-lg font-medium text-[var(--text-primary)]">Empty directory</div>
           <div className="text-caption text-[var(--text-secondary)] mt-2">
@@ -251,7 +251,7 @@ function countItems(entries: FileTreeType[]): string {
 function FolderIcon() {
   return (
     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)]">
-      <Icon name="folder" className="h-4 w-4 text-[var(--accent)]" />
+      <Folder className="h-4 w-4 text-primary" />
     </div>
   );
 }

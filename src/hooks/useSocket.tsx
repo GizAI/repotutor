@@ -23,14 +23,14 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 
 // Provider component
 export function SocketProvider({ children, url }: { children: ReactNode; url?: string }) {
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     // Same origin - unified server handles both HTTP and WebSocket
     const wsUrl = url || (typeof window !== 'undefined' ? window.location.origin : '');
 
-    const socket = io(wsUrl, {
+    const newSocket = io(wsUrl, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -39,42 +39,46 @@ export function SocketProvider({ children, url }: { children: ReactNode; url?: s
       reconnectionDelayMax: 5000,
     });
 
-    socketRef.current = socket;
+    setSocket(newSocket);
 
-    socket.on('connect', () => {
-      console.log('[WS] Connected');
+    newSocket.on('connect', () => {
+      console.log('[WS] Connected:', newSocket.id);
       setConnected(true);
     });
 
-    socket.on('disconnect', () => {
+    newSocket.on('disconnect', () => {
       console.log('[WS] Disconnected');
       setConnected(false);
     });
 
-    socket.on('error', (err) => {
+    newSocket.on('connect_error', (err) => {
+      console.error('[WS] Connection error:', err.message);
+    });
+
+    newSocket.on('error', (err) => {
       console.error('[WS] Error:', err);
     });
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      newSocket.disconnect();
+      setSocket(null);
     };
   }, [url]);
 
   const subscribe = useCallback((channel: string, params?: Record<string, unknown>) => {
-    socketRef.current?.emit('subscribe', channel, params);
-  }, []);
+    socket?.emit('subscribe', channel, params);
+  }, [socket]);
 
   const unsubscribe = useCallback((channel: string) => {
-    socketRef.current?.emit('unsubscribe', channel);
-  }, []);
+    socket?.emit('unsubscribe', channel);
+  }, [socket]);
 
   const send = useCallback((channel: string, action: string, payload?: unknown) => {
-    socketRef.current?.emit('message', channel, action, payload);
-  }, []);
+    socket?.emit('message', channel, action, payload);
+  }, [socket]);
 
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current, connected, subscribe, unsubscribe, send }}>
+    <SocketContext.Provider value={{ socket, connected, subscribe, unsubscribe, send }}>
       {children}
     </SocketContext.Provider>
   );

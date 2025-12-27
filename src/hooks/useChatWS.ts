@@ -17,6 +17,8 @@ import type {
   ToolCall, UsageInfo, ContextInfo, ChatEvent,
   ToolStartEventData, ToolProgressEventData, ToolResultEventData,
   StatusEventData, ResultEventData, InitEventData,
+  MessageStartEventData, MessageDeltaEventData,
+  AuthStatusEventData, HookResponseEventData,
 } from '@/components/chat/types';
 
 // Timeline item - message or tool call, ordered by time
@@ -41,9 +43,26 @@ export interface SessionInfo {
   title?: string;
 }
 
+// MCP server status
+interface McpServerInfo {
+  name: string;
+  status: 'connected' | 'failed' | 'pending';
+}
+
+// Hook response info
+interface HookResponse {
+  hookName: string;
+  hookEvent: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  timestamp: number;
+}
+
 interface ChatWSState {
   sessionId: string | null;
   status: 'idle' | 'connecting' | 'running' | 'completed' | 'error' | 'aborted';
+  isLoading: boolean;  // Loading session/conversation
   timeline: TimelineItem[];
   streamingContent: string;
   streamingThinking: string;
@@ -54,11 +73,23 @@ interface ChatWSState {
   error?: string;
   model?: string;
   sessions: SessionInfo[];
+  // Session info from init
+  tools?: string[];
+  skills?: string[];
+  mcpServers?: McpServerInfo[];
+  permissionMode?: string;
+  // SDK event states
+  isAuthenticating?: boolean;
+  authError?: string;
+  hookResponses: HookResponse[];
+  stopReason?: string;
+  messageId?: string;
 }
 
 const initialState: ChatWSState = {
   sessionId: null,
   status: 'idle',
+  isLoading: false,
   timeline: [],
   streamingContent: '',
   streamingThinking: '',
@@ -67,6 +98,7 @@ const initialState: ChatWSState = {
   contextInfo: {},
   sessionCost: 0,
   sessions: [],
+  hookResponses: [],
 };
 
 const STORAGE_KEY = 'chat_session_id';
@@ -103,8 +135,18 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     switch (ev.type) {
       case 'init': {
         const data = ev.data as InitEventData;
-        // Keep server sessionId, only update model (SDK sessionId is different from server sessionId)
-        setState(s => ({ ...s, model: data.model }));
+        // Store all session info from init event
+        setState(s => ({
+          ...s,
+          model: data.model,
+          tools: data.tools,
+          skills: data.skills,
+          permissionMode: data.permissionMode,
+          mcpServers: data.mcpServers?.map(m => ({
+            name: m.name,
+            status: m.status as 'connected' | 'failed' | 'pending',
+          })),
+        }));
         break;
       }
 
@@ -229,6 +271,7 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
           ...s,
           lastUsage: {
             costUsd: data.costUsd,
+            durationMs: data.durationMs,
             inputTokens: data.inputTokens,
             outputTokens: data.outputTokens,
             cacheReadTokens: data.cacheReadTokens,
@@ -236,6 +279,70 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
           },
           sessionCost: s.sessionCost + (data.costUsd || 0),
         }));
+        break;
+      }
+
+      // Message lifecycle events
+      case 'message_start': {
+        const data = ev.data as MessageStartEventData;
+        assistantIdRef.current = data.id;
+        if (data.model) {
+          setState(s => ({ ...s, model: data.model, messageId: data.id }));
+        }
+        break;
+      }
+
+      case 'message_delta': {
+        const data = ev.data as MessageDeltaEventData;
+        if (data.stopReason) {
+          setState(s => ({ ...s, stopReason: data.stopReason }));
+        }
+        break;
+      }
+
+      case 'message_stop': {
+        // Message complete - could trigger timeline update
+        break;
+      }
+
+      // Authentication status
+      case 'auth_status': {
+        const data = ev.data as AuthStatusEventData;
+        setState(s => ({
+          ...s,
+          isAuthenticating: data.isAuthenticating,
+          authError: data.error,
+        }));
+        break;
+      }
+
+      // Hook execution results - accumulate all responses
+      case 'hook_response': {
+        const data = ev.data as HookResponseEventData;
+        setState(s => ({
+          ...s,
+          hookResponses: [...s.hookResponses.slice(-9), { // Keep last 10
+            hookName: data.hookName,
+            hookEvent: data.hookEvent,
+            stdout: data.stdout,
+            stderr: data.stderr,
+            exitCode: data.exitCode,
+            timestamp: ev.ts,
+          }],
+        }));
+        break;
+      }
+
+      // Thinking block start
+      case 'thinking_start': {
+        // Reset thinking accumulator for new thinking block
+        thinkingRef.current = '';
+        break;
+      }
+
+      // Signature (extended thinking verification)
+      case 'signature': {
+        // Could verify thinking authenticity, usually just ignore
         break;
       }
     }
@@ -287,31 +394,58 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
 
       'chat:completed': (data: { sessionId: string; result?: { costUsd?: number; durationMs?: number } }) => {
         const finalContent = contentRef.current;
-        if (finalContent) {
-          const msgId = assistantIdRef.current || `msg-${Date.now()}`;
-          const usage = data.result ? { costUsd: data.result.costUsd, durationMs: data.result.durationMs } : undefined;
-          setState(s => ({
-            ...s,
-            status: 'completed',
-            timeline: [...s.timeline, {
+        const finalThinking = thinkingRef.current;
+        const now = Date.now();
+
+        setState(s => {
+          const newItems: TimelineItem[] = [];
+
+          // Add thinking to timeline if present
+          if (finalThinking) {
+            newItems.push({
+              id: `thinking-${now}`,
+              type: 'thinking' as const,
+              timestamp: now,
+              content: '',
+              thinking: finalThinking,
+            });
+          }
+
+          // Add assistant message to timeline with full usage info from lastUsage
+          if (finalContent) {
+            const msgId = assistantIdRef.current || `msg-${now}`;
+            // Merge result data with lastUsage (which has token info from 'result' event)
+            const usage = s.lastUsage ? {
+              ...s.lastUsage,
+              durationMs: data.result?.durationMs || s.lastUsage.durationMs,
+            } : (data.result ? { costUsd: data.result.costUsd, durationMs: data.result.durationMs } : undefined);
+            newItems.push({
               id: msgId,
               type: 'assistant' as const,
-              timestamp: Date.now(),
+              timestamp: now,
               content: finalContent,
               usage,
-            }],
+            });
+          }
+
+          if (newItems.length === 0) {
+            return { ...s, status: 'completed' as const };
+          }
+
+          return {
+            ...s,
+            status: 'completed' as const,
+            timeline: [...s.timeline, ...newItems],
             streamingContent: '',
             streamingThinking: '',
             activeTools: new Map(),
-            lastUsage: usage || null,
             sessionCost: s.sessionCost + (data.result?.costUsd || 0),
-          }));
-          contentRef.current = '';
-          thinkingRef.current = '';
-          toolsRef.current.clear();
-        } else {
-          setState(s => ({ ...s, status: 'completed' }));
-        }
+          };
+        });
+
+        contentRef.current = '';
+        thinkingRef.current = '';
+        toolsRef.current.clear();
       },
 
       'chat:aborted': () => {
@@ -321,7 +455,43 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
       },
 
       'chat:error': (data: { error: string }) => {
-        setState(s => ({ ...s, status: 'error', error: data.error }));
+        setState(s => ({ ...s, status: 'error', error: data.error, isLoading: false }));
+      },
+
+      'chat:loading': () => {
+        setState(s => ({ ...s, isLoading: true }));
+      },
+
+      'chat:conversation': (data: {
+        sessionId: string;
+        messages: Array<{
+          type: 'user' | 'assistant' | 'tool' | 'thinking';
+          content: string;
+          timestamp: number;
+          model?: string;
+          usage?: { costUsd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number };
+          tool?: { id: string; name: string; input?: string; output?: string; status: 'completed' | 'error' };
+          thinking?: string;
+        }>
+      }) => {
+        // Convert JSONL messages to timeline items
+        const timeline: TimelineItem[] = data.messages.map((msg, idx) => ({
+          id: `${msg.type}-${msg.timestamp}-${idx}`,
+          type: msg.type,
+          timestamp: msg.timestamp,
+          content: msg.content,
+          model: msg.model,
+          usage: msg.usage,
+          tool: msg.tool ? { ...msg.tool, status: msg.tool.status } : undefined,
+          thinking: msg.thinking,
+        }));
+        setState(s => ({
+          ...s,
+          sessionId: data.sessionId,
+          timeline,
+          status: 'completed',
+          isLoading: false,
+        }));
       },
     };
 
@@ -343,7 +513,7 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
   }, [socket, connected, options?.sessionId, processEvent]);
 
   // Send message
-  const send = useCallback((message: string, currentPath?: string) => {
+  const send = useCallback((message: string, currentPath?: string, mode: 'claude-code' | 'deepagents' = 'claude-code') => {
     if (!socket || !connected) return;
 
     setState(s => ({
@@ -362,6 +532,7 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
       sessionId: state.sessionId,
       currentPath,
       cwd: options?.cwd,
+      mode,
     });
   }, [socket, connected, state.sessionId, options?.cwd]);
 
@@ -380,7 +551,7 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     setState(s => ({ ...initialState, sessions: s.sessions }));
   }, []);
 
-  // Select existing session
+  // Select existing session (loads conversation from server)
   const selectSession = useCallback((sessionId: string) => {
     if (!socket) return;
     contentRef.current = '';
@@ -391,10 +562,11 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
       ...initialState,
       sessions: s.sessions,
       sessionId,
+      isLoading: true,
       status: 'connecting',
     }));
-    // Re-subscribe to get session state and replay
-    socket.emit('subscribe', 'chat', { sessionId });
+    // Load conversation from JSONL file
+    socket.emit('message', 'chat', 'load', { sessionId });
   }, [socket]);
 
   return {

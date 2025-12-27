@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../ui/Icon';
+import { FolderCode, ChevronDown, Check, X, Plus, ArrowLeft } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -25,12 +25,10 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 프로젝트 목록 로드
   useEffect(() => {
     fetchProjects();
   }, []);
 
-  // 외부 클릭 감지
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -71,7 +69,6 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
       });
 
       if (res.ok) {
-        // 페이지 새로고침으로 새 프로젝트 반영
         window.location.reload();
       }
     } catch (err) {
@@ -107,9 +104,8 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
         return;
       }
 
-      // 새 프로젝트로 전환
       await switchProject(data.project.id);
-    } catch (err) {
+    } catch {
       setError('Failed to add project');
     } finally {
       setLoading(false);
@@ -142,13 +138,12 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors group"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-white">
-          <Icon name="folder-code" className="h-3.5 w-3.5" />
+          <FolderCode className="h-3.5 w-3.5" />
         </div>
         <span className="font-medium text-[var(--text-primary)] max-w-[120px] truncate">
           {currentProject?.name || 'Select Project'}
         </span>
-        <Icon
-          name="chevron-down"
+        <ChevronDown
           className={`h-4 w-4 text-[var(--text-tertiary)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
@@ -182,7 +177,7 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
                         </div>
                       </div>
                       {currentProject?.id === project.id && (
-                        <Icon name="check" className="h-4 w-4 flex-shrink-0" />
+                        <Check className="h-4 w-4 flex-shrink-0" />
                       )}
                       {projects.length > 1 && currentProject?.id !== project.id && (
                         <button
@@ -190,7 +185,7 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
                           className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--bg-tertiary)] transition-opacity"
                           title="Remove project"
                         >
-                          <Icon name="x" className="h-3 w-3 text-[var(--text-tertiary)]" />
+                          <X className="h-3 w-3 text-[var(--text-tertiary)]" />
                         </button>
                       )}
                     </div>
@@ -204,7 +199,7 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
                   onClick={() => setIsAddMode(true)}
                   className="flex items-center gap-2 w-full p-2 rounded-md text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-primary)] transition-colors"
                 >
-                  <Icon name="plus" className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                   Add Project
                 </button>
               </div>
@@ -224,7 +219,7 @@ export function RepoSelector({ currentProject: initialProject }: RepoSelectorPro
                   }}
                   className="p-1 rounded hover:bg-[var(--hover-bg)]"
                 >
-                  <Icon name="arrow-left" className="h-4 w-4 text-[var(--text-secondary)]" />
+                  <ArrowLeft className="h-4 w-4 text-[var(--text-secondary)]" />
                 </button>
                 <span className="font-medium text-sm">Add Project</span>
               </div>

@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { SessionSummary } from '@/hooks/useSessionManager';
-import { Icon } from '@/components/ui/Icon';
+import { X, Search, Sparkles } from 'lucide-react';
 
 interface SessionListProps {
   isOpen: boolean;
@@ -275,152 +275,158 @@ export function SessionList({
   if (!isOpen) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="absolute inset-0 z-30 bg-[var(--bg-primary)] flex flex-col"
-    >
-      {/* Header */}
-      <header className="flex items-center justify-between h-14 px-4 border-b border-[var(--border-default)]">
-        <h2 className="text-body-lg font-medium text-[var(--text-primary)]">Sessions</h2>
-        <div className="flex items-center gap-2">
-          {/* Import Button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-            title="Import session"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-          />
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
-          >
-            <Icon name="close" className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+    <div className="absolute inset-0 z-30 flex">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Search and Filter */}
-      <div className="p-4 space-y-3 border-b border-[var(--border-default)]">
-        <div className="relative">
-          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search sessions..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-default)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)]"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onNew}
-            className="btn btn-primary flex-1 py-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            New
-          </button>
-          <button
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-              showFavoritesOnly
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
-                : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]'
-            }`}
-          >
-            ★ Favorites
-          </button>
-        </div>
-
-        {/* Tag Filters */}
-        {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {allTags.map(tag => {
-              const color = TAG_COLORS.find(c => c.name === tag) || TAG_COLORS[4];
-              const isActive = tagFilter === tag;
-              return (
-                <button
-                  key={tag}
-                  onClick={() => setTagFilter(isActive ? null : tag)}
-                  className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
-                    isActive
-                      ? `${color.bg} ${color.text} ${color.border}`
-                      : 'border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-[var(--border-strong)]'
-                  }`}
-                >
-                  {tag}
-                </button>
-              );
-            })}
-            {tagFilter && (
-              <button
-                onClick={() => setTagFilter(null)}
-                className="px-2 py-0.5 text-[10px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Session List */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin">
-        {sessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--bg-secondary)] mb-4">
-              <svg className="w-7 h-7 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      {/* Sidebar */}
+      <motion.aside
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        transition={{ duration: 0.15 }}
+        className="relative w-72 h-full bg-[var(--bg-primary)] border-r border-[var(--border-default)] flex flex-col"
+      >
+        {/* Header */}
+        <header className="flex items-center justify-between h-12 px-3 border-b border-[var(--border-default)]">
+          <h2 className="text-sm font-medium text-[var(--text-primary)]">Sessions</h2>
+          <div className="flex items-center gap-1">
+            {/* Import Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
+              title="Import session"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-            </div>
-            <p className="text-caption text-[var(--text-secondary)]">No sessions yet</p>
-            <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Start a new conversation</p>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
+            <button
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        ) : filteredSessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <p className="text-caption text-[var(--text-secondary)]">No matching sessions</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredSessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                isActive={session.id === currentSessionId}
-                isFavorite={favorites.has(session.id)}
-                tags={sessionTags[session.id] || []}
-                onSelect={() => onSelect(session)}
-                onFavorite={() => toggleFavorite(session.id)}
-                onToggleTag={(tag) => toggleTag(session.id, tag)}
-                onDelete={onDelete ? () => onDelete(session.id) : undefined}
-                onRename={onRename}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+        </header>
 
-      {/* Footer info */}
-      <div className="p-3 border-t border-[var(--border-default)] text-center">
-        <p className="text-[10px] text-[var(--text-tertiary)]">
-          Sessions stored in ~/.claude/projects/
-        </p>
-      </div>
-    </motion.div>
+        {/* Search and Filter */}
+        <div className="p-3 space-y-2 border-b border-[var(--border-default)]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sessions..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-default)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onNew}
+              className="btn btn-primary flex-1 py-1.5 text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              New
+            </button>
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`px-2.5 py-1.5 rounded-lg border text-sm transition-colors ${
+                showFavoritesOnly
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]'
+              }`}
+            >
+              ★
+            </button>
+          </div>
+
+          {/* Tag Filters */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {allTags.map(tag => {
+                const color = TAG_COLORS.find(c => c.name === tag) || TAG_COLORS[4];
+                const isActive = tagFilter === tag;
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => setTagFilter(isActive ? null : tag)}
+                    className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
+                      isActive
+                        ? `${color.bg} ${color.text} ${color.border}`
+                        : 'border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-[var(--border-strong)]'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+              {tagFilter && (
+                <button
+                  onClick={() => setTagFilter(null)}
+                  className="px-2 py-0.5 text-[10px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Session List */}
+        <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
+          {sessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-secondary)] mb-3">
+                <svg className="w-6 h-6 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)]">No sessions yet</p>
+              <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Start a new conversation</p>
+            </div>
+          ) : filteredSessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <p className="text-xs text-[var(--text-secondary)]">No matching sessions</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {filteredSessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  isActive={session.id === currentSessionId}
+                  isFavorite={favorites.has(session.id)}
+                  tags={sessionTags[session.id] || []}
+                  onSelect={() => onSelect(session)}
+                  onFavorite={() => toggleFavorite(session.id)}
+                  onToggleTag={(tag) => toggleTag(session.id, tag)}
+                  onDelete={onDelete ? () => onDelete(session.id) : undefined}
+                  onRename={onRename}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer info */}
+        <div className="p-3 border-t border-[var(--border-default)] text-center">
+          <p className="text-[10px] text-[var(--text-tertiary)]">
+            Sessions stored in ~/.claude/projects/
+          </p>
+        </div>
+      </motion.aside>
+    </div>
   );
 }
 
@@ -492,7 +498,7 @@ function SessionCard({
     >
       {/* Mode Badge */}
       <div className="flex items-center gap-2 mb-2">
-        <Icon name="spark" className={`h-4 w-4 ${isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`} />
+        <Sparkles className={`h-4 w-4 ${isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`} />
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">
           {shortModel}
         </span>

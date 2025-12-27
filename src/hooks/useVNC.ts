@@ -21,6 +21,7 @@ export interface VNCOptions {
   qualityLevel?: number;
   compressionLevel?: number;
   showDotCursor?: boolean;
+  dragViewport?: boolean;  // For touchpad mode
 }
 
 export function useVNC(containerRef: React.RefObject<HTMLDivElement | null>) {
@@ -63,6 +64,7 @@ export function useVNC(containerRef: React.RefObject<HTMLDivElement | null>) {
       rfb.qualityLevel = options.qualityLevel ?? 6;
       rfb.compressionLevel = options.compressionLevel ?? 2;
       rfb.showDotCursor = options.showDotCursor ?? false;
+      rfb.dragViewport = options.dragViewport ?? false;
 
       // Event handlers
       rfb.addEventListener('connect', () => {
@@ -187,6 +189,58 @@ export function useVNC(containerRef: React.RefObject<HTMLDivElement | null>) {
     if (rfbRef.current) rfbRef.current.compressionLevel = level;
   }, []);
 
+  const setDragViewport = useCallback((drag: boolean) => {
+    if (rfbRef.current) rfbRef.current.dragViewport = drag;
+  }, []);
+
+  // Get the canvas element for custom touch handling
+  const getCanvas = useCallback((): HTMLCanvasElement | null => {
+    // noVNC creates a canvas inside the container with class 'vnc-screen'
+    return containerRef.current?.querySelector('canvas') ?? null;
+  }, [containerRef]);
+
+  // Get framebuffer dimensions
+  const getFramebufferSize = useCallback((): { width: number; height: number } | null => {
+    const rfb = rfbRef.current as any;
+    if (!rfb) return null;
+    return {
+      width: rfb._fbWidth || 800,
+      height: rfb._fbHeight || 600,
+    };
+  }, []);
+
+  // Send pointer event directly via RFB protocol (for touchpad mode)
+  // x, y are in canvas/screen coordinates
+  // mask: 0=move, 1=left click, 2=middle click, 4=right click
+  const sendPointerEvent = useCallback((x: number, y: number, mask: number) => {
+    const rfb = rfbRef.current as any;
+    if (!rfb || rfb._rfbConnectionState !== 'connected') return;
+    if (rfb._viewOnly) return;
+
+    const canvas = getCanvas();
+    if (!canvas) return;
+
+    // Transform coordinates if scaling is applied
+    let fbX = Math.round(x);
+    let fbY = Math.round(y);
+
+    if (rfb.scaleViewport && rfb._fbWidth && rfb._fbHeight) {
+      const scaleX = rfb._fbWidth / canvas.width;
+      const scaleY = rfb._fbHeight / canvas.height;
+      fbX = Math.round(x * scaleX);
+      fbY = Math.round(y * scaleY);
+    }
+
+    // Clamp to framebuffer bounds
+    fbX = Math.max(0, Math.min(fbX, (rfb._fbWidth || 800) - 1));
+    fbY = Math.max(0, Math.min(fbY, (rfb._fbHeight || 600) - 1));
+
+    // Send via internal RFB method
+    if (typeof rfb._sendMouse === 'function') {
+      rfb._sendMouse(fbX, fbY, mask);
+    }
+  }, [getCanvas]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -215,5 +269,9 @@ export function useVNC(containerRef: React.RefObject<HTMLDivElement | null>) {
     setViewOnly,
     setQualityLevel,
     setCompressionLevel,
+    setDragViewport,
+    getCanvas,
+    getFramebufferSize,
+    sendPointerEvent,
   };
 }

@@ -15,7 +15,7 @@ interface FileEntry {
 interface FileTreeProps {
   entries: FileEntry[];
   basePath?: string;
-  onNavigate?: () => void;
+  onNavigate?: (path: string) => void; // Optional callback for client-side navigation
 }
 
 const STORAGE_KEY = 'filetree-expanded-paths';
@@ -123,7 +123,7 @@ interface FileTreeNodeProps {
   entry: FileEntry;
   basePath: string;
   depth: number;
-  onNavigate?: () => void;
+  onNavigate?: (path: string) => void;
   expandedPaths: Set<string>;
   toggleExpand: (path: string) => void;
   currentPath: string;
@@ -206,11 +206,28 @@ function FileTreeNode({
     );
   }
 
+  // Use button for client-side navigation, Link for Next.js routing
+  if (onNavigate) {
+    return (
+      <button
+        onClick={() => onNavigate(entry.path)}
+        className={`flex w-full items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors active:scale-[0.98] text-left ${
+          isActive
+            ? 'bg-[var(--accent)]/10 text-[var(--accent)] font-medium'
+            : 'hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
+        }`}
+        style={{ paddingLeft: paddingLeft + 14 }}
+      >
+        <FileIcon extension={getExtension(entry.name)} />
+        <span className="truncate text-xs lg:text-sm">{entry.name}</span>
+      </button>
+    );
+  }
+
   return (
     <Link
       ref={nodeRef}
       href={`${basePath}/${entry.path}`}
-      onClick={onNavigate}
       scroll={false}
       prefetch={true}
       className={`flex items-center gap-1.5 py-1.5 lg:py-1 px-2 rounded-md transition-colors active:scale-[0.98] ${

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getCurrentProjectPath } from '@/lib/giz-config';
 
 const execAsync = promisify(exec);
 
 function getRepoPath(): string {
-  return process.env.REPO_PATH || process.cwd();
+  return getCurrentProjectPath() || process.cwd();
 }
 
 export async function POST(request: NextRequest) {

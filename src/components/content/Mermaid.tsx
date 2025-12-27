@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import mermaid from 'mermaid';
-import { Icon } from '../ui/Icon';
+import { Network } from 'lucide-react';
 
 interface MermaidProps {
   code: string;
@@ -75,7 +75,7 @@ export function Mermaid({ code, title, isDark = true }: MermaidProps) {
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] grid place-items-center">
-            <Icon name="wires" className="h-4 w-4 text-[var(--accent)]" />
+            <Network className="h-4 w-4 text-[var(--accent)]" />
           </div>
           <div>
             <div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>

@@ -191,7 +191,8 @@ EOF`);
       const displayNum = VNC_DISPLAY.replace(':', '');
       const rfbPort = 5900 + parseInt(displayNum);
 
-      // Start Xvnc directly with RandR support for dynamic resize
+      // Start Xvnc directly with dynamic resize support
+      // TigerVNC supports SetDesktopSize with -AcceptSetDesktopSize
       vncProcess = spawn('Xvnc', [
         VNC_DISPLAY,
         '-rfbport', rfbPort.toString(),
@@ -201,7 +202,6 @@ EOF`);
         '-localhost',
         '-geometry', '1280x720',
         '-depth', '24',
-        '-randr', '1920x1080,1680x1050,1440x900,1280x1024,1280x800,1280x720,1024x768,800x600',
       ], {
         stdio: 'inherit',
         detached: true,

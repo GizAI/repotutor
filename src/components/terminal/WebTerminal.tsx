@@ -1,23 +1,160 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useTerminal } from '@/hooks/useTerminal';
+import { AnimatePresence } from 'framer-motion';
+import { useTerminalSession } from '@/hooks/useTerminalSession';
+import { useT } from '@/lib/i18n';
+import { TerminalHeader } from './TerminalHeader';
+import { TerminalSessionList } from './TerminalSessionList';
 import type { Terminal as XTerminal } from 'xterm';
 import type { FitAddon as XFitAddon } from '@xterm/addon-fit';
 
-interface WebTerminalProps {
-  className?: string;
+// Hook to get keyboard position (works on iOS and Android)
+// Returns bottom offset accounting for scroll position
+function useKeyboardBottom() {
+  const [bottom, setBottom] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      // Keyboard height = difference between window and visual viewport
+      const kbHeight = window.innerHeight - vv.height;
+      if (kbHeight > 0) {
+        // Account for scroll offset - toolbar should stick to keyboard top
+        const scrollOffset = vv.offsetTop;
+        setBottom(kbHeight - scrollOffset);
+      } else {
+        setBottom(0);
+      }
+    };
+
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  return bottom;
 }
 
-export function WebTerminal({ className = '' }: WebTerminalProps) {
+interface WebTerminalProps {
+  className?: string;
+  sessionId?: string;
+  onSessionChange?: (sessionId: string | null) => void;
+  showHeader?: boolean;
+  isActive?: boolean; // For keep-alive: hide fixed elements when not active
+}
+
+// Check if device is touch-capable
+function isTouchDevice() {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+
+// Command history storage
+function getCommandHistory(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const saved = localStorage.getItem('terminal-command-history');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCommandHistory(history: string[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('terminal-command-history', JSON.stringify(history.slice(0, 100)));
+}
+
+export function WebTerminal({
+  className = '',
+  sessionId: initialSessionId,
+  onSessionChange,
+  showHeader = true,
+  isActive = true,
+}: WebTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerminal | null>(null);
   const fitAddonRef = useRef<XFitAddon | null>(null);
   const [ready, setReady] = useState(false);
+  const [isTouch] = useState(() => isTouchDevice());
+  const { t } = useT();
+  const keyboardBottom = useKeyboardBottom();
 
-  const { connected, connect, disconnect, write, resize, onData, onExit } = useTerminal();
+  // Session list modal
+  const [showSessionList, setShowSessionList] = useState(false);
 
-  // Initialize terminal
+  // Toolbar states
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [textInputValue, setTextInputValue] = useState('');
+
+  // Command history
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Terminal session hook
+  const {
+    sessions,
+    currentSessionId,
+    connected,
+    cols,
+    rows,
+    createSession,
+    joinSession,
+    leaveSession,
+    terminateSession,
+    renameSession,
+    refreshSessions,
+    write,
+    resize,
+    inject,
+    onData,
+    onBuffer,
+    onExit,
+    connect,
+    disconnect,
+  } = useTerminalSession();
+
+  // Load command history on mount
+  useEffect(() => {
+    setCommandHistory(getCommandHistory());
+  }, []);
+
+  // Notify parent of session changes
+  useEffect(() => {
+    onSessionChange?.(currentSessionId);
+  }, [currentSessionId, onSessionChange]);
+
+  // Join initial session if provided
+  useEffect(() => {
+    if (initialSessionId && connected && !currentSessionId) {
+      joinSession(initialSessionId);
+    }
+  }, [initialSessionId, connected, currentSessionId, joinSession]);
+
+  // Store callbacks in refs to avoid re-running effect
+  const connectRef = useRef(connect);
+  const disconnectRef = useRef(disconnect);
+  const resizeRef = useRef(resize);
+
+  useEffect(() => {
+    connectRef.current = connect;
+    disconnectRef.current = disconnect;
+    resizeRef.current = resize;
+  }, [connect, disconnect, resize]);
+
+  // Initialize terminal (run once)
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -44,6 +181,7 @@ export function WebTerminal({ className = '' }: WebTerminalProps) {
       const term = new Terminal({
         cursorBlink: true,
         convertEol: true,
+        allowProposedApi: true,
         fontFamily: 'Monaco, Menlo, "Ubuntu Mono", "Courier New", monospace',
         fontSize: 14,
         lineHeight: 1.2,
@@ -84,33 +222,49 @@ export function WebTerminal({ className = '' }: WebTerminalProps) {
       // Send dimensions after fit
       setTimeout(() => {
         if (fit && term && mounted) {
-          resize(term.cols, term.rows);
+          resizeRef.current(term.cols, term.rows);
         }
       }, 100);
 
       setReady(true);
 
       // Connect to terminal channel
-      connect();
+      connectRef.current();
     };
 
     initTerminal();
 
     return () => {
       mounted = false;
-      disconnect();
+      disconnectRef.current();
       terminalRef.current?.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [connect, disconnect, resize]);
+  }, []); // Empty deps - run once
 
-  // Handle terminal input
+  // Handle terminal input with modifier support
   useEffect(() => {
     const term = terminalRef.current;
     if (!term || !ready) return;
 
     const disposable = term.onData((data) => {
+      // Apply Ctrl modifier if active
+      if (ctrlDownRef.current && data.length === 1) {
+        const char = data.toUpperCase();
+        const code = char.charCodeAt(0) - 64;
+        if (code >= 0 && code <= 31) {
+          write(String.fromCharCode(code));
+          setCtrlDown(false);
+          return;
+        }
+      }
+      // Apply Alt modifier if active
+      if (altDownRef.current && data.length === 1) {
+        write('\x1b' + data);
+        setAltDown(false);
+        return;
+      }
       write(data);
     });
 
@@ -123,14 +277,27 @@ export function WebTerminal({ className = '' }: WebTerminalProps) {
   useEffect(() => {
     if (!ready) return;
 
-    onData((data) => {
-      terminalRef.current?.write(data);
+    onData((sessionId, data) => {
+      // Only write if it's for the current session
+      if (sessionId === currentSessionId) {
+        terminalRef.current?.write(data);
+      }
     });
 
-    onExit((code) => {
-      terminalRef.current?.writeln(`\r\n\x1b[33mProcess exited with code ${code}\x1b[0m`);
+    onExit((sessionId, code) => {
+      if (sessionId === currentSessionId) {
+        terminalRef.current?.writeln(`\r\n\x1b[33mProcess exited with code ${code}\x1b[0m`);
+      }
     });
-  }, [ready, onData, onExit]);
+
+    // Handle scrollback buffer (session persistence)
+    // Note: We always render the buffer because terminal:joined is always for the session we just joined
+    onBuffer((sessionId, buffer) => {
+      terminalRef.current?.clear();
+      terminalRef.current?.write(buffer);
+      terminalRef.current?.focus();
+    });
+  }, [ready, currentSessionId, onData, onExit, onBuffer]);
 
   // Handle resize
   const handleResize = useCallback(() => {
@@ -163,16 +330,372 @@ export function WebTerminal({ className = '' }: WebTerminalProps) {
     };
   }, [ready, handleResize]);
 
+  // Send key to terminal
+  const sendKey = useCallback(
+    (key: string) => {
+      write(key);
+      terminalRef.current?.focus();
+    },
+    [write]
+  );
+
+  // Send escape sequence
+  const sendEscape = useCallback(
+    (sequence: string) => {
+      write(sequence);
+      terminalRef.current?.focus();
+    },
+    [write]
+  );
+
+  // Modifier key states
+  const [ctrlDown, setCtrlDown] = useState(false);
+  const [altDown, setAltDown] = useState(false);
+  const ctrlDownRef = useRef(false);
+  const altDownRef = useRef(false);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    ctrlDownRef.current = ctrlDown;
+  }, [ctrlDown]);
+
+  useEffect(() => {
+    altDownRef.current = altDown;
+  }, [altDown]);
+
+  // Send control character (Ctrl+key)
+  const sendCtrlKey = useCallback(
+    (key: string) => {
+      const code = key.toUpperCase().charCodeAt(0) - 64;
+      if (code >= 0 && code <= 31) {
+        write(String.fromCharCode(code));
+      }
+      setCtrlDown(false);
+      terminalRef.current?.focus();
+    },
+    [write]
+  );
+
+  // Handle key with modifiers
+  const handleModifiedKey = useCallback(
+    (key: string) => {
+      if (ctrlDown) {
+        sendCtrlKey(key);
+      } else if (altDown) {
+        write('\x1b' + key);
+        setAltDown(false);
+        terminalRef.current?.focus();
+      }
+    },
+    [ctrlDown, altDown, sendCtrlKey, write]
+  );
+
+  // Prevent keyboard dismiss on touch
+  const preventDismiss = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+  }, []);
+
+  // Send composed text and save to history
+  const sendTextInput = useCallback(() => {
+    if (textInputValue) {
+      write(textInputValue + '\n');
+
+      // Add to command history
+      const newHistory = [textInputValue, ...commandHistory.filter((h) => h !== textInputValue)];
+      setCommandHistory(newHistory);
+      saveCommandHistory(newHistory);
+
+      setTextInputValue('');
+      setShowTextInput(false);
+      setHistoryIndex(-1);
+      terminalRef.current?.focus();
+    }
+  }, [write, textInputValue, commandHistory]);
+
+  // Handle text input key events
+  const handleTextInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendTextInput();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowTextInput(false);
+        terminalRef.current?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
+          const newIndex = historyIndex + 1;
+          setHistoryIndex(newIndex);
+          setTextInputValue(commandHistory[newIndex]);
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex > 0) {
+          const newIndex = historyIndex - 1;
+          setHistoryIndex(newIndex);
+          setTextInputValue(commandHistory[newIndex]);
+        } else if (historyIndex === 0) {
+          setHistoryIndex(-1);
+          setTextInputValue('');
+        }
+      }
+    },
+    [sendTextInput, commandHistory, historyIndex]
+  );
+
+  // Select history item
+  const selectHistoryItem = useCallback((command: string) => {
+    setTextInputValue(command);
+    setShowHistory(false);
+  }, []);
+
+  // Session handlers
+  const handleNewSession = useCallback(() => {
+    createSession();
+    setShowSessionList(false);
+  }, [createSession]);
+
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      // Clear terminal before switching
+      terminalRef.current?.clear();
+      joinSession(sessionId);
+      setShowSessionList(false);
+    },
+    [joinSession]
+  );
+
+  const handleTerminateSession = useCallback(
+    (sessionId: string) => {
+      terminateSession(sessionId);
+    },
+    [terminateSession]
+  );
+
+  const handleRenameSession = useCallback(
+    (sessionId: string, newTitle: string) => {
+      renameSession(sessionId, newTitle);
+    },
+    [renameSession]
+  );
+
   return (
-    <div className={`relative h-full ${className}`}>
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-        style={{ padding: '8px', backgroundColor: '#1a1a1a' }}
-      />
-      {!connected && ready && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="text-[var(--text-secondary)] text-sm">Connecting...</div>
+    <div className={`relative h-full flex flex-col ${className}`}>
+      {/* Session Header */}
+      {showHeader && (
+        <TerminalHeader
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          connected={connected}
+          onOpenSessionList={() => setShowSessionList(true)}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+          onTerminateSession={handleTerminateSession}
+        />
+      )}
+
+      {/* Session List Modal */}
+      <AnimatePresence>
+        {showSessionList && (
+          <TerminalSessionList
+            isOpen={showSessionList}
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSelect={handleSelectSession}
+            onNew={handleNewSession}
+            onClose={() => setShowSessionList(false)}
+            onTerminate={handleTerminateSession}
+            onRename={handleRenameSession}
+          />
+        )}
+      </AnimatePresence>
+
+
+      {/* Terminal Container */}
+      <div className="flex-1 min-h-0 relative">
+        <div
+          ref={containerRef}
+          className="h-full w-full select-text"
+          style={{
+            padding: '8px',
+            backgroundColor: '#1a1a1a',
+            touchAction: 'pan-y pinch-zoom',
+            WebkitUserSelect: 'text',
+            userSelect: 'text',
+          }}
+        />
+        {!connected && ready && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <div className="text-[var(--text-secondary)] text-sm">{t('terminal.connecting')}</div>
+          </div>
+        )}
+        {connected && !currentSessionId && ready && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 gap-4">
+            <div className="text-[var(--text-secondary)] text-sm">{t('terminal.noSession')}</div>
+            <button
+              onClick={handleNewSession}
+              className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm hover:opacity-90"
+            >
+              {t('terminal.newSession')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Toolbar - fixed above keyboard when open, hidden when tab not active */}
+      {isTouch && isActive && (
+        <div
+          className="shrink-0 bg-[var(--bg-primary)] border-t border-[var(--border-default)]"
+          style={keyboardBottom > 0 ? {
+            position: 'fixed',
+            bottom: keyboardBottom,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+          } : undefined}
+        >
+          {/* Text Input (collapsible) */}
+          {showTextInput && (
+            <div className="flex items-center gap-2 px-2 py-2 border-b border-[var(--border-default)] bg-[var(--bg-secondary)]">
+              <input
+                type="text"
+                value={textInputValue}
+                onChange={(e) => setTextInputValue(e.target.value)}
+                onKeyDown={handleTextInputKeyDown}
+                placeholder={t('terminal.textInputPlaceholder')}
+                className="flex-1 h-9 px-3 text-sm bg-[var(--bg-primary)] border border-[var(--border-default)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                autoFocus
+              />
+              <button
+                onClick={sendTextInput}
+                disabled={!textInputValue}
+                className="px-4 h-9 text-sm bg-[var(--accent)] text-white rounded hover:opacity-90 disabled:opacity-50"
+              >
+                ↵
+              </button>
+            </div>
+          )}
+
+          {/* Command History (collapsible) */}
+          {showHistory && commandHistory.length > 0 && (
+            <div className="max-h-28 overflow-y-auto border-b border-[var(--border-default)] bg-[var(--bg-secondary)]">
+              {commandHistory.slice(0, 8).map((command, index) => (
+                <button
+                  key={index}
+                  onClick={() => selectHistoryItem(command)}
+                  className="w-full px-3 py-2 text-left text-xs font-mono text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] truncate"
+                >
+                  {command}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Scrollable Toolbar */}
+          <div className="h-11 flex items-center overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-1.5 px-2 min-w-max">
+              {/* Modifier Keys */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => setCtrlDown(!ctrlDown)}
+                className={`px-3 py-1.5 text-xs rounded ${ctrlDown ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'} active:bg-[var(--hover-bg)]`}
+              >
+                Ctrl
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => setAltDown(!altDown)}
+                className={`px-3 py-1.5 text-xs rounded ${altDown ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'} active:bg-[var(--hover-bg)]`}
+              >
+                Alt
+              </button>
+
+              <div className="w-px h-5 bg-[var(--border-default)]" />
+
+              {/* Special Keys */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => sendEscape('\x1b')}
+                className="px-3 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+              >
+                Esc
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => sendKey('\t')}
+                className="px-3 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+              >
+                Tab
+              </button>
+
+              <div className="w-px h-5 bg-[var(--border-default)]" />
+
+              {/* Arrow Keys */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => sendEscape('\x1b[A')}
+                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+              >
+                ↑
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => sendEscape('\x1b[B')}
+                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+              >
+                ↓
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => sendEscape('\x1b[D')}
+                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+              >
+                ←
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => sendEscape('\x1b[C')}
+                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+              >
+                →
+              </button>
+
+              <div className="w-px h-5 bg-[var(--border-default)]" />
+
+              {/* Text Input & History */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => {
+                  setShowTextInput(!showTextInput);
+                  if (!showTextInput) setShowHistory(false);
+                }}
+                className={`px-2.5 py-1.5 text-xs rounded ${showTextInput ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
+              >
+                ⌨
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => {
+                  setShowHistory(!showHistory);
+                  if (!showHistory) setShowTextInput(true);
+                }}
+                className={`px-2.5 py-1.5 text-xs rounded ${showHistory ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
+              >
+                ↺
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
