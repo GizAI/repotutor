@@ -204,13 +204,14 @@ ${config.description ? `설명: ${config.description}` : ''}
       // Full tool access with MCP servers
       tools: { type: 'preset', preset: 'claude_code' },
 
-      // MCP servers for browser automation (Chrome auto-launched on VNC display)
+      // MCP servers for browser automation (Chrome on VNC display)
       mcpServers: {
         'chrome-devtools': {
           command: 'npx',
           args: ['chrome-devtools-mcp@latest'],
           env: {
-            DISPLAY: process.env.VNC_DISPLAY || ':4',
+            DISPLAY: process.env.VNC_DISPLAY || ':10',
+            CHROME_REMOTE_DEBUGGING_PORT: process.env.CHROME_CDP_PORT || '9333',
           },
         },
       },

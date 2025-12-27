@@ -5,7 +5,8 @@
       "command": "npx",
       "args": ["-y", "chrome-devtools-mcp@latest"],
       "env": {
-        "DISPLAY": ":4"
+        "DISPLAY": ":10",
+        "CHROME_REMOTE_DEBUGGING_PORT": "9333"
       }
     }
   }
