@@ -30,6 +30,12 @@ API_KEY=""
 PM2_NAME="giz-code"
 NO_PM2=false
 DEV_MODE=false
+INTERACTIVE=true
+
+# Detect if running in pipe (curl | bash)
+if [ ! -t 0 ]; then
+    INTERACTIVE=false
+fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Helpers
@@ -76,11 +82,13 @@ usage() {
 # Parse arguments
 # ═══════════════════════════════════════════════════════════════════════════════
 
+PORT_SET=false
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --repo) TARGET_REPO="$2"; shift 2 ;;
         --password) PASSWORD="$2"; shift 2 ;;
-        --port) PORT="$2"; shift 2 ;;
+        --port) PORT="$2"; PORT_SET=true; shift 2 ;;
         --api-key) API_KEY="$2"; shift 2 ;;
         --name) PM2_NAME="$2"; shift 2 ;;
         --dir) INSTALL_DIR="$2"; shift 2 ;;
@@ -136,7 +144,20 @@ check_deps() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 interactive_setup() {
-    # Target repo
+    # Non-interactive mode: require --repo
+    if [ "$INTERACTIVE" = false ]; then
+        if [ -z "$TARGET_REPO" ]; then
+            error "Non-interactive mode requires --repo option"
+        fi
+        # Expand ~ to $HOME
+        TARGET_REPO="${TARGET_REPO/#\~/$HOME}"
+        if [ ! -d "$TARGET_REPO" ]; then
+            error "Directory not found: $TARGET_REPO"
+        fi
+        return
+    fi
+
+    # Interactive mode
     if [ -z "$TARGET_REPO" ]; then
         echo ""
         read -p "$(echo -e "${CYAN}?${NC} Target repository path: ")" TARGET_REPO
@@ -158,8 +179,8 @@ interactive_setup() {
         read -p "$(echo -e "${CYAN}?${NC} Password for web access (Enter to skip): ")" PASSWORD
     fi
 
-    # Port
-    if [ "$PORT" = "3000" ]; then
+    # Port (only ask if not explicitly set)
+    if [ "$PORT_SET" = false ]; then
         read -p "$(echo -e "${CYAN}?${NC} Port [3000]: ")" input_port
         PORT="${input_port:-3000}"
     fi
