@@ -52,6 +52,7 @@ function useIsMobileSafe(): { isMobile: boolean; mounted: boolean } {
   return { isMobile, mounted };
 }
 
+
 interface GlobalContextType {
   openSearch: () => void;
   openChat: () => void;
@@ -63,6 +64,9 @@ interface GlobalContextType {
   // Browse path for keep-alive
   browsePath: string;
   setBrowsePath: (path: string) => void;
+  // Terminal auto-resize (shrink container when keyboard opens)
+  terminalAutoResize: boolean;
+  setTerminalAutoResize: (enabled: boolean) => void;
 }
 
 const GlobalContext = createContext<GlobalContextType | null>(null);
@@ -95,6 +99,9 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
 
   // Desktop: open by default, Mobile: managed by tabs
   const [isAgentOpen, setIsAgentOpen] = useState(true);
+
+  // Terminal auto-resize state (shared with WebTerminal) - default OFF (fixed toolbar mode)
+  const [terminalAutoResize, setTerminalAutoResize] = useState(false);
 
   // Client-side tab state for true keep-alive (no unmounting)
   const [mobileTab, setMobileTabState] = useState<MobileTab>('browse');
@@ -201,6 +208,25 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [searchModal, isMobile, mobileTab, setMobileTab, isBrowseRoute]);
 
+  // Dynamically update viewport meta tag based on terminal auto-resize setting
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+
+    const baseContent = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+    if (terminalAutoResize) {
+      // Resize mode: let browser resize layout viewport with keyboard
+      meta.setAttribute('content', `${baseContent}, interactive-widget=resizes-content`);
+    } else {
+      // Fixed toolbar mode: don't resize layout viewport
+      meta.setAttribute('content', `${baseContent}, interactive-widget=resizes-visual`);
+    }
+    // Reset scroll position to prevent viewport jump
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+  }, [terminalAutoResize]);
+
   // Determine if we should use mobile keep-alive layout
   const useMobileKeepAlive = mounted && isMobile && (isMobileTabRoute || isBrowseRoute || inMobileTabMode);
 
@@ -227,6 +253,8 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
         setMobileTab,
         browsePath,
         setBrowsePath,
+        terminalAutoResize,
+        setTerminalAutoResize,
       }}
     >
       {!mounted ? (
@@ -235,7 +263,7 @@ function GlobalProvidersInner({ children }: { children: React.ReactNode }) {
           <div className="flex-1 min-w-0">{children}</div>
         </div>
       ) : useMobileKeepAlive ? (
-        /* Mobile: keep-alive tab layout - ALL tabs including browse */
+        /* Mobile: keep-alive tab layout - uses 100dvh which auto-resizes with interactive-widget=resizes-content */
         <div className="flex flex-col h-dvh bg-[var(--bg-primary)]">
           <div className="flex-1 min-h-0 relative">
             <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)]">{t('common.loading')}</div>}>

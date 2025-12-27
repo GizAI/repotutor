@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useTerminalSession } from '@/hooks/useTerminalSession';
 import { useT } from '@/lib/i18n';
+import { useGlobal } from '@/components/layout/GlobalProviders';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalSessionList } from './TerminalSessionList';
 import type { Terminal as XTerminal } from 'xterm';
@@ -12,35 +13,43 @@ import type { FitAddon as XFitAddon } from '@xterm/addon-fit';
 // Tab bar height (h-10 = 40px) - used to position toolbar above tab bar when keyboard is open
 const TAB_BAR_HEIGHT = 40;
 
-// Hook to get keyboard info including scroll offset and viewport height
-function useKeyboardInfo() {
-  const [info, setInfo] = useState({ height: 0, scrollOffset: 0, viewportHeight: 0 });
+// Hook to get visual viewport info
+// When interactive-widget=resizes-visual, window.innerHeight stays constant and visualViewport shrinks
+function useVisualViewport() {
+  const [info, setInfo] = useState({ height: 0, keyboardHeight: 0, scrollOffset: 0 });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const vv = window.visualViewport;
-    if (!vv) return;
 
     const update = () => {
-      const kbHeight = window.innerHeight - vv.height;
-      // offsetTop: how much the viewport has scrolled (iOS keyboard pushes content up)
-      const scrollOffset = vv.offsetTop;
-      const isKeyboardOpen = kbHeight > 100;
-      setInfo({
-        height: isKeyboardOpen ? kbHeight : 0,
-        scrollOffset: isKeyboardOpen ? scrollOffset : 0,
-        viewportHeight: isKeyboardOpen ? vv.height : 0,
-      });
+      if (vv) {
+        // Original logic: keyboard height = difference between window and visual viewport
+        const kbHeight = window.innerHeight - vv.height;
+        setInfo({
+          height: vv.height,
+          keyboardHeight: kbHeight > 100 ? kbHeight : 0,
+          scrollOffset: kbHeight > 100 ? vv.offsetTop : 0,
+        });
+      } else {
+        setInfo({ height: window.innerHeight, keyboardHeight: 0, scrollOffset: 0 });
+      }
     };
 
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
+    if (vv) {
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+    }
+    window.addEventListener('resize', update);
     update();
 
     return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
+      if (vv) {
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
+      }
+      window.removeEventListener('resize', update);
     };
   }, []);
 
@@ -86,19 +95,23 @@ export function WebTerminal({
   isActive = true,
 }: WebTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerminal | null>(null);
   const fitAddonRef = useRef<XFitAddon | null>(null);
   const [ready, setReady] = useState(false);
   const [isTouch] = useState(() => isTouchDevice());
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const { t } = useT();
-  const { height: keyboardHeight, scrollOffset, viewportHeight } = useKeyboardInfo();
+  const { terminalAutoResize: autoResizeEnabled, setTerminalAutoResize: setAutoResizeEnabled } = useGlobal();
+  // Viewport info for re-fitting terminal when keyboard opens
+  const { keyboardHeight, scrollOffset } = useVisualViewport();
+
+  // Keyboard is open when keyboardHeight > 0
+  const isKeyboardOpen = keyboardHeight > 0;
 
   // Session list modal
   const [showSessionList, setShowSessionList] = useState(false);
 
-  // Toolbar ref and height
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(0);
 
   // Toolbar states
   const [showTextInput, setShowTextInput] = useState(false);
@@ -110,6 +123,23 @@ export function WebTerminal({
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Track toolbar height when it's fixed (for terminal padding)
+  useEffect(() => {
+    if (!autoResizeEnabled && isKeyboardOpen && toolbarRef.current) {
+      const updateHeight = () => {
+        const height = toolbarRef.current?.offsetHeight || 0;
+        setToolbarHeight(height);
+      };
+      updateHeight();
+      // Use ResizeObserver to track dynamic height changes
+      const observer = new ResizeObserver(updateHeight);
+      observer.observe(toolbarRef.current);
+      return () => observer.disconnect();
+    } else {
+      setToolbarHeight(0);
+    }
+  }, [autoResizeEnabled, isKeyboardOpen, showTextInput, showFnKeys, showNavKeys, showHistory]);
 
   // Terminal session hook
   const {
@@ -427,41 +457,19 @@ export function WebTerminal({
   // Note: Removed auto-exit from selection mode on selectionchange
   // User must explicitly tap Sel button again to exit select mode
 
-  // Measure toolbar height when keyboard is open
-  useEffect(() => {
-    if (keyboardHeight === 0 || !toolbarRef.current) {
-      setToolbarHeight(0);
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setToolbarHeight(entry.contentRect.height);
-      }
-    });
-
-    observer.observe(toolbarRef.current);
-    // Initial measurement
-    setToolbarHeight(toolbarRef.current.offsetHeight);
-
-    return () => observer.disconnect();
-  }, [keyboardHeight, showTextInput, showFnKeys, showNavKeys, showHistory]);
-
-  // Re-fit terminal when toolbar height or viewport changes
+  // Re-fit terminal when viewport/keyboard/toolbar changes
   useEffect(() => {
     if (ready) {
-      // Small delay to ensure DOM has updated
       const timer = setTimeout(() => {
         fitAddonRef.current?.fit();
         const term = terminalRef.current;
         if (term) {
           resize(term.cols, term.rows);
         }
-      }, 50);
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [toolbarHeight, viewportHeight, ready, resize]);
+  }, [keyboardHeight, autoResizeEnabled, toolbarHeight, ready, resize]);
 
   // Send control character (Ctrl+key)
   const sendCtrlKey = useCallback(
@@ -582,10 +590,11 @@ export function WebTerminal({
 
   return (
     <div
-      className={`relative flex flex-col ${className}`}
+      className={`flex flex-col overflow-hidden ${className}`}
       style={{
-        // When keyboard is open, limit height to visible viewport
-        height: viewportHeight > 0 ? `${viewportHeight}px` : '100%',
+        // Always fill parent - GlobalProviders handles viewport sizing
+        position: 'relative',
+        height: '100%',
       }}
     >
       {/* Session Header */}
@@ -618,18 +627,16 @@ export function WebTerminal({
       </AnimatePresence>
 
 
-      {/* Terminal Container */}
-      <div
-        className="flex-1 min-h-0 relative"
-        style={{
-          // Reserve space for fixed toolbar when keyboard is open
-          paddingBottom: keyboardHeight > 0 ? toolbarHeight : 0,
-        }}
-      >
+      {/* Terminal Container - adjust bottom when toolbar is fixed to prevent overlap */}
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         <div
           ref={containerRef}
-          className="h-full w-full select-text"
+          className="absolute select-text"
           style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: toolbarHeight > 0 ? toolbarHeight : 0,
             padding: '8px',
             backgroundColor: '#1a1a1a',
             touchAction: 'pan-y pinch-zoom',
@@ -661,12 +668,12 @@ export function WebTerminal({
         )}
       </div>
 
-      {/* Mobile Toolbar - fixed when keyboard open, static when closed */}
-      {(isTouch || true) && isActive && ( /* DEBUG */
+      {/* Mobile Toolbar - static when auto-resize enabled, fixed above keyboard when not */}
+      {(isTouch || true) && isActive && (
         <div
           ref={toolbarRef}
           className="bg-[var(--bg-secondary)] shrink-0"
-          style={keyboardHeight > 0 ? {
+          style={!autoResizeEnabled && isKeyboardOpen ? {
             position: 'fixed',
             bottom: Math.max(0, keyboardHeight - TAB_BAR_HEIGHT - scrollOffset),
             left: 0,
@@ -758,7 +765,18 @@ export function WebTerminal({
           {/* Scrollable Toolbar */}
           <div className="h-12 flex items-center overflow-x-auto scrollbar-hide">
             <div className="flex items-center gap-2 px-3 min-w-max">
-              {/* Selection Mode Toggle - First */}
+              {/* Auto-resize toggle - always visible for keyboard mode selection */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => setAutoResizeEnabled(!autoResizeEnabled)}
+                className={`h-9 px-2 text-xs font-medium rounded-lg ${autoResizeEnabled ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
+                title={autoResizeEnabled ? "Resize mode: ON (shrinks terminal)" : "Resize mode: OFF (toolbar floats)"}
+              >
+                ⇅
+              </button>
+
+              {/* Selection Mode Toggle */}
               <button
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
