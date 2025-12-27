@@ -12,9 +12,9 @@ import type { FitAddon as XFitAddon } from '@xterm/addon-fit';
 // Tab bar height (h-10 = 40px) - used to position toolbar above tab bar when keyboard is open
 const TAB_BAR_HEIGHT = 40;
 
-// Hook to get keyboard info including scroll offset
+// Hook to get keyboard info including scroll offset and viewport height
 function useKeyboardInfo() {
-  const [info, setInfo] = useState({ height: 0, scrollOffset: 0 });
+  const [info, setInfo] = useState({ height: 0, scrollOffset: 0, viewportHeight: 0 });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -26,9 +26,11 @@ function useKeyboardInfo() {
       const kbHeight = window.innerHeight - vv.height;
       // offsetTop: how much the viewport has scrolled (iOS keyboard pushes content up)
       const scrollOffset = vv.offsetTop;
+      const isKeyboardOpen = kbHeight > 100;
       setInfo({
-        height: kbHeight > 100 ? kbHeight : 0,
-        scrollOffset: kbHeight > 100 ? scrollOffset : 0,
+        height: isKeyboardOpen ? kbHeight : 0,
+        scrollOffset: isKeyboardOpen ? scrollOffset : 0,
+        viewportHeight: isKeyboardOpen ? vv.height : 0,
       });
     };
 
@@ -89,10 +91,14 @@ export function WebTerminal({
   const [ready, setReady] = useState(false);
   const [isTouch] = useState(() => isTouchDevice());
   const { t } = useT();
-  const { height: keyboardHeight, scrollOffset } = useKeyboardInfo();
+  const { height: keyboardHeight, scrollOffset, viewportHeight } = useKeyboardInfo();
 
   // Session list modal
   const [showSessionList, setShowSessionList] = useState(false);
+
+  // Toolbar ref and height
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
 
   // Toolbar states
   const [showTextInput, setShowTextInput] = useState(false);
@@ -275,6 +281,17 @@ export function WebTerminal({
     };
   }, [ready, write]);
 
+  // Check if terminal is near bottom (within threshold rows)
+  const isNearBottom = useCallback(() => {
+    const term = terminalRef.current;
+    if (!term) return true;
+    const buffer = term.buffer.active;
+    // baseY is the top of the scrollback, viewportY is current scroll position
+    // When at bottom: viewportY === baseY
+    const scrollOffset = buffer.baseY - buffer.viewportY;
+    return scrollOffset <= 3; // Within 3 rows of bottom
+  }, []);
+
   // Handle terminal output from server
   useEffect(() => {
     if (!ready) return;
@@ -282,13 +299,19 @@ export function WebTerminal({
     onData((sessionId, data) => {
       // Only write if it's for the current session
       if (sessionId === currentSessionId) {
+        const wasNearBottom = isNearBottom();
         terminalRef.current?.write(data);
+        // Auto-scroll only if was near bottom
+        if (wasNearBottom) {
+          terminalRef.current?.scrollToBottom();
+        }
       }
     });
 
     onExit((sessionId, code) => {
       if (sessionId === currentSessionId) {
         terminalRef.current?.writeln(`\r\n\x1b[33mProcess exited with code ${code}\x1b[0m`);
+        terminalRef.current?.scrollToBottom();
       }
     });
 
@@ -297,9 +320,11 @@ export function WebTerminal({
     onBuffer((sessionId, buffer) => {
       terminalRef.current?.clear();
       terminalRef.current?.write(buffer);
+      // Always scroll to bottom on load
+      terminalRef.current?.scrollToBottom();
       terminalRef.current?.focus();
     });
-  }, [ready, currentSessionId, onData, onExit, onBuffer]);
+  }, [ready, currentSessionId, onData, onExit, onBuffer, isNearBottom]);
 
   // Handle resize
   const handleResize = useCallback(() => {
@@ -401,6 +426,42 @@ export function WebTerminal({
 
   // Note: Removed auto-exit from selection mode on selectionchange
   // User must explicitly tap Sel button again to exit select mode
+
+  // Measure toolbar height when keyboard is open
+  useEffect(() => {
+    if (keyboardHeight === 0 || !toolbarRef.current) {
+      setToolbarHeight(0);
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setToolbarHeight(entry.contentRect.height);
+      }
+    });
+
+    observer.observe(toolbarRef.current);
+    // Initial measurement
+    setToolbarHeight(toolbarRef.current.offsetHeight);
+
+    return () => observer.disconnect();
+  }, [keyboardHeight, showTextInput, showFnKeys, showNavKeys, showHistory]);
+
+  // Re-fit terminal when toolbar height or viewport changes
+  useEffect(() => {
+    if (ready) {
+      // Small delay to ensure DOM has updated
+      const timer = setTimeout(() => {
+        fitAddonRef.current?.fit();
+        const term = terminalRef.current;
+        if (term) {
+          resize(term.cols, term.rows);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [toolbarHeight, viewportHeight, ready, resize]);
 
   // Send control character (Ctrl+key)
   const sendCtrlKey = useCallback(
@@ -520,7 +581,13 @@ export function WebTerminal({
   );
 
   return (
-    <div className={`relative h-full flex flex-col ${className}`}>
+    <div
+      className={`relative flex flex-col ${className}`}
+      style={{
+        // When keyboard is open, limit height to visible viewport
+        height: viewportHeight > 0 ? `${viewportHeight}px` : '100%',
+      }}
+    >
       {/* Session Header */}
       {showHeader && (
         <TerminalHeader
@@ -552,7 +619,13 @@ export function WebTerminal({
 
 
       {/* Terminal Container */}
-      <div className="flex-1 min-h-0 relative">
+      <div
+        className="flex-1 min-h-0 relative"
+        style={{
+          // Reserve space for fixed toolbar when keyboard is open
+          paddingBottom: keyboardHeight > 0 ? toolbarHeight : 0,
+        }}
+      >
         <div
           ref={containerRef}
           className="h-full w-full select-text"
@@ -591,6 +664,7 @@ export function WebTerminal({
       {/* Mobile Toolbar - fixed when keyboard open, static when closed */}
       {(isTouch || true) && isActive && ( /* DEBUG */
         <div
+          ref={toolbarRef}
           className="bg-[var(--bg-secondary)] shrink-0"
           style={keyboardHeight > 0 ? {
             position: 'fixed',
@@ -611,6 +685,12 @@ export function WebTerminal({
                 placeholder={t('terminal.textInputPlaceholder')}
                 className="flex-1 h-9 px-3 text-sm bg-[var(--bg-primary)] border border-[var(--border-default)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
                 autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-form-type="other"
+                data-lpignore="true"
               />
               <button
                 onClick={sendTextInput}

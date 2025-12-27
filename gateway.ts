@@ -315,6 +315,24 @@ const gateway = createServer((req: IncomingMessage, res: ServerResponse) => {
     return;
   }
 
+  // Public routes that don't require authentication
+  const isPublicRoute =
+    pathname === '/login' ||
+    pathname === '/login/' ||
+    pathname?.startsWith('/api/auth/') ||
+    pathname?.startsWith('/_next/') ||
+    pathname?.startsWith('/locales/') ||
+    pathname?.startsWith('/favicon') ||
+    pathname?.startsWith('/socket.io');
+
+  // Check authentication for protected routes
+  if (AUTH_PASSWORD && !isPublicRoute && !isAuthenticated(req)) {
+    // Redirect to login page
+    res.writeHead(302, { Location: `/login?redirect=${encodeURIComponent(pathname || '/')}` });
+    res.end();
+    return;
+  }
+
   // Proxy all other HTTP to Next.js
   const proxyReq = httpRequest({
     hostname: NEXT_HOST,

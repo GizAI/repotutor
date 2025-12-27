@@ -2,7 +2,7 @@
 
 import { useState, useMemo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ToolCall } from '../types';
+import { ToolCall, PermissionRequest } from '../types';
 import {
   Check, X, ChevronDown, Loader2, Eye, FilePlus, FileDiff, FileEdit,
   Terminal, Search, FileSearch, FolderOpen, Globe, Rocket, ListTodo,
@@ -11,6 +11,7 @@ import {
 import { getToolConfig, getToolTitle, isToolMinimal } from './knownTools';
 import { EditView } from './EditView';
 import { BashView } from './BashView';
+import { PermissionCard } from './PermissionCard';
 
 // Icon mapping
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -44,7 +45,17 @@ function getToolView(tool: ToolCall): ReactNode | null {
   }
 }
 
-export function ToolCallCard({ tool }: { tool: ToolCall }) {
+interface ToolCallCardProps {
+  tool: ToolCall;
+  permission?: PermissionRequest;
+  onPermissionRespond?: (
+    permissionId: string,
+    approved: boolean,
+    options?: { mode?: 'default' | 'acceptEdits'; allowTools?: string[] }
+  ) => void;
+}
+
+export function ToolCallCard({ tool, permission, onPermissionRespond }: ToolCallCardProps) {
   const config = getToolConfig(tool.name);
   const title = getToolTitle(tool);
   const minimal = isToolMinimal(tool);
@@ -203,6 +214,11 @@ export function ToolCallCard({ tool }: { tool: ToolCall }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Permission request UI */}
+      {permission && onPermissionRespond && (
+        <PermissionCard permission={permission} onRespond={onPermissionRespond} />
+      )}
     </div>
   );
 }

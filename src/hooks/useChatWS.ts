@@ -19,6 +19,7 @@ import type {
   StatusEventData, ResultEventData, InitEventData,
   MessageStartEventData, MessageDeltaEventData,
   AuthStatusEventData, HookResponseEventData,
+  PermissionRequest, PermissionRequestEventData,
 } from '@/components/chat/types';
 
 // Timeline item - message or tool call, ordered by time
@@ -177,6 +178,8 @@ interface ChatWSState {
   // Available models and commands
   availableModels: ModelInfo[];
   slashCommands: SlashCommand[];
+  // Permission requests
+  pendingPermissions: PermissionRequest[];
 }
 
 const PERMISSION_MODE_KEY = 'chat_permission_mode';
@@ -207,6 +210,7 @@ const initialState: ChatWSState = {
   availableModels: [],
   slashCommands: [],
   selectedPermissionMode: 'bypassPermissions',
+  pendingPermissions: [],
 };
 
 const STORAGE_KEY = 'chat_session_id';
@@ -463,6 +467,26 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
         // Could verify thinking authenticity, usually just ignore
         break;
       }
+
+      // Permission request from SDK
+      case 'permission_request': {
+        const data = ev.data as PermissionRequestEventData;
+        const newPermission: PermissionRequest = {
+          id: data.id,
+          toolName: data.toolName,
+          toolInput: data.toolInput,
+          toolUseId: data.toolUseId,
+          status: 'pending',
+          decisionReason: data.decisionReason,
+          blockedPath: data.blockedPath,
+          suggestions: data.suggestions,
+        };
+        setState(s => ({
+          ...s,
+          pendingPermissions: [...s.pendingPermissions, newPermission],
+        }));
+        break;
+      }
     }
   }, []);
 
@@ -619,6 +643,23 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
       'chat:commands': (data: { commands: SlashCommand[] }) => {
         setState(s => ({ ...s, slashCommands: data.commands }));
       },
+
+      // Permission resolved (approved or denied)
+      'chat:permission_resolved': (data: { id: string; approved: boolean }) => {
+        setState(s => ({
+          ...s,
+          pendingPermissions: s.pendingPermissions.map(p =>
+            p.id === data.id ? { ...p, status: data.approved ? 'approved' : 'denied' } : p
+          ),
+        }));
+        // Remove resolved permission after brief delay (for UI feedback)
+        setTimeout(() => {
+          setState(s => ({
+            ...s,
+            pendingPermissions: s.pendingPermissions.filter(p => p.id !== data.id),
+          }));
+        }, 1000);
+      },
     };
 
     for (const [event, handler] of Object.entries(handlers)) {
@@ -733,6 +774,34 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     setState(s => ({ ...s, selectedPermissionMode: nextMode }));
   }, [state.selectedPermissionMode]);
 
+  // Respond to permission request
+  const respondToPermission = useCallback((
+    permissionId: string,
+    approved: boolean,
+    options?: {
+      mode?: 'default' | 'acceptEdits';  // Switch to acceptEdits for "allow all edits"
+      allowTools?: string[];  // Allow specific tools for session
+    }
+  ) => {
+    if (!socket || !state.sessionId) return;
+
+    // Optimistic update
+    setState(s => ({
+      ...s,
+      pendingPermissions: s.pendingPermissions.map(p =>
+        p.id === permissionId ? { ...p, status: approved ? 'approved' : 'denied' } : p
+      ),
+    }));
+
+    socket.emit('message', 'chat', 'permission_response', {
+      sessionId: state.sessionId,
+      id: permissionId,
+      approved,
+      mode: options?.mode,
+      allowTools: options?.allowTools,
+    });
+  }, [socket, state.sessionId]);
+
   return {
     ...state,
     connected,
@@ -746,6 +815,7 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     fetchCommands,
     setPermissionMode,
     cyclePermissionMode,
+    respondToPermission,
     // Derived state
     runningSessions: state.sessions.filter(s => s.state === 'running'),
     completedSessions: state.sessions.filter(s => s.state !== 'running'),

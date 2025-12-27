@@ -160,3 +160,39 @@ export interface HookResponseEventData {
   stderr: string;
   exitCode?: number;
 }
+
+// Permission request from SDK
+export interface PermissionRequest {
+  id: string;
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+  status: 'pending' | 'approved' | 'denied';
+  decisionReason?: string;
+  blockedPath?: string;
+  suggestions?: PermissionUpdate[];
+}
+
+export interface PermissionUpdate {
+  type: 'allow_tool' | 'allow_path' | 'allow_command';
+  tool?: string;
+  path?: string;
+  command?: string;
+}
+
+export interface PermissionRequestEventData {
+  id: string;
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+  decisionReason?: string;
+  blockedPath?: string;
+  suggestions?: PermissionUpdate[];
+}
+
+export interface PermissionResponseData {
+  id: string;
+  approved: boolean;
+  mode?: 'default' | 'acceptEdits';
+  allowTools?: string[];
+}

@@ -64,14 +64,33 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
 
   const budgetWarning = chat.sessionCost >= budgetLimit * 0.8;
 
-  // Auto-scroll
+  // Auto-scroll (only when user hasn't scrolled up)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat.timeline, chat.streamingContent]);
+    if (!userHasScrolled) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chat.timeline, chat.streamingContent, userHasScrolled]);
+
+  // Detect user scroll
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setUserHasScrolled(!isAtBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Focus input
   useEffect(() => {
@@ -589,7 +608,7 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
       )}
 
       {/* Timeline (messages + tools interleaved) */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
+      <main ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
         {/* Loading indicator */}
         {chat.isLoading && (
           <div className="h-full flex flex-col items-center justify-center">
@@ -625,7 +644,15 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
             {chat.timeline.map((item, idx) => {
               const prev = chat.timeline[idx - 1];
               const isConsecutive = prev?.type === 'assistant' && item.type === 'assistant';
-              return <TimelineItemView key={item.id} item={item} isConsecutive={isConsecutive} />;
+              return (
+                <TimelineItemView
+                  key={item.id}
+                  item={item}
+                  isConsecutive={isConsecutive}
+                  pendingPermissions={chat.pendingPermissions}
+                  onPermissionRespond={chat.respondToPermission}
+                />
+              );
             })}
 
             {/* Streaming content */}
@@ -759,7 +786,7 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
   );
 }
 
-// Session list panel - Side drawer style
+// Session list panel - Side drawer style with search & modern UX
 function SessionListPanel({
   sessions, runningSessions, currentSessionId, onSelect, onNew, onClose
 }: {
@@ -770,7 +797,39 @@ function SessionListPanel({
   onNew: () => void;
   onClose: () => void;
 }) {
-  const completedSessions = sessions.filter(s => s.state !== 'running');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus search input on mount
+  useEffect(() => {
+    setTimeout(() => searchInputRef.current?.focus(), 100);
+  }, []);
+
+  // Sort sessions by startedAt (newest first)
+  const sortedSessions = useMemo(() => {
+    return [...sessions].sort((a, b) => b.startedAt - a.startedAt);
+  }, [sessions]);
+
+  // Filter and categorize sessions
+  const { filteredRunning, filteredCompleted } = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+
+    const matchSession = (s: SessionInfo) => {
+      if (!query) return true;
+      return (
+        s.title?.toLowerCase().includes(query) ||
+        s.id.toLowerCase().includes(query) ||
+        s.model?.toLowerCase().includes(query)
+      );
+    };
+
+    const running = sortedSessions.filter(s => s.state === 'running' && matchSession(s));
+    const completed = sortedSessions.filter(s => s.state !== 'running' && matchSession(s));
+
+    return { filteredRunning: running, filteredCompleted: completed };
+  }, [sortedSessions, searchQuery]);
+
+  const totalFiltered = filteredRunning.length + filteredCompleted.length;
 
   return (
     <>
@@ -780,7 +839,7 @@ function SessionListPanel({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/30 z-20"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm z-20"
       />
       {/* Side panel */}
       <motion.div
@@ -788,80 +847,199 @@ function SessionListPanel({
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -280 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="absolute top-0 left-0 bottom-0 w-72 bg-[var(--bg-primary)] border-r border-[var(--border-default)] z-30 flex flex-col shadow-xl"
+        className="absolute top-0 left-0 bottom-0 w-80 bg-[var(--bg-primary)] border-r border-[var(--border-default)] z-30 flex flex-col shadow-2xl"
       >
+        {/* Header */}
         <header className="flex items-center justify-between h-14 px-4 border-b border-[var(--border-default)]">
-          <h2 className="text-sm font-medium text-[var(--text-primary)]">Sessions</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[var(--text-tertiary)]" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Sessions</h2>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]">
+              {sessions.length}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors"
+          >
             <X className="h-4 w-4" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+        {/* Search & New Session */}
+        <div className="p-3 space-y-2 border-b border-[var(--border-default)]">
+          {/* Search input */}
+          <div className="relative">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sessions..."
+              className="w-full pl-9 pr-8 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-default)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           {/* New session button */}
-          <button onClick={onNew}
-            className="w-full px-3 py-2.5 text-left text-sm bg-[var(--accent)] text-white rounded-lg hover:opacity-90 flex items-center gap-2">
+          <button
+            onClick={onNew}
+            className="w-full px-3 py-2.5 text-sm font-medium bg-[var(--accent)] text-white rounded-lg hover:opacity-90 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          >
             <Plus className="w-4 h-4" />
             New Session
           </button>
+        </div>
 
+        {/* Session list */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
           {/* Running sessions */}
-          {runningSessions.length > 0 && (
-            <div className="mt-3">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5 px-1 flex items-center gap-1.5">
+          {filteredRunning.length > 0 && (
+            <div className="p-3 pb-1">
+              <div className="text-[10px] uppercase tracking-wider text-emerald-500 mb-2 px-1 flex items-center gap-1.5 font-medium">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                Running ({runningSessions.length})
+                Running ({filteredRunning.length})
               </div>
-              <div className="space-y-1">
-                {runningSessions.map(s => (
-                  <SessionItem key={s.id} session={s} isActive={s.id === currentSessionId} onSelect={onSelect} />
+              <div className="space-y-1.5">
+                {filteredRunning.map((s, idx) => (
+                  <motion.div
+                    key={s.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.03 }}
+                  >
+                    <SessionItem session={s} isActive={s.id === currentSessionId} onSelect={onSelect} searchQuery={searchQuery} />
+                  </motion.div>
                 ))}
               </div>
             </div>
           )}
 
           {/* Completed sessions */}
-          {completedSessions.length > 0 && (
-            <div className="mt-3">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5 px-1">
-                Recent
+          {filteredCompleted.length > 0 && (
+            <div className="p-3 pt-2">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-2 px-1 font-medium">
+                History
               </div>
-              <div className="space-y-1">
-                {completedSessions.slice(0, 10).map(s => (
-                  <SessionItem key={s.id} session={s} isActive={s.id === currentSessionId} onSelect={onSelect} />
+              <div className="space-y-1.5">
+                {filteredCompleted.map((s, idx) => (
+                  <motion.div
+                    key={s.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.02 }}
+                  >
+                    <SessionItem session={s} isActive={s.id === currentSessionId} onSelect={onSelect} searchQuery={searchQuery} />
+                  </motion.div>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Empty states */}
           {sessions.length === 0 && (
-            <div className="text-center py-8">
-              <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-xs text-[var(--text-tertiary)]">Loading sessions...</p>
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <div className="w-10 h-10 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-sm text-[var(--text-secondary)]">Loading sessions...</p>
             </div>
           )}
+
+          {sessions.length > 0 && totalFiltered === 0 && searchQuery && (
+            <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+              <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <p className="text-sm text-[var(--text-secondary)] mb-1">No matching sessions</p>
+              <p className="text-xs text-[var(--text-tertiary)]">Try a different search term</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-[var(--border-default)] bg-[var(--bg-secondary)]">
+          <p className="text-[10px] text-[var(--text-tertiary)] text-center">
+            Sessions from ~/.claude/projects/
+          </p>
         </div>
       </motion.div>
     </>
   );
 }
 
-// Session item
-function SessionItem({ session, isActive, onSelect }: { session: SessionInfo; isActive: boolean; onSelect: (s: SessionInfo) => void }) {
-  const stateColors = {
-    running: 'bg-emerald-500',
-    completed: 'bg-blue-500',
-    error: 'bg-red-500',
-    aborted: 'bg-gray-500',
+// Highlight matching text
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-amber-300/40 text-inherit rounded px-0.5">{part}</mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+// Session item with improved UX
+function SessionItem({
+  session,
+  isActive,
+  onSelect,
+  searchQuery = ''
+}: {
+  session: SessionInfo;
+  isActive: boolean;
+  onSelect: (s: SessionInfo) => void;
+  searchQuery?: string;
+}) {
+  const stateIcons = {
+    running: <Zap className="w-3 h-3" />,
+    completed: <Sparkles className="w-3 h-3" />,
+    error: <X className="w-3 h-3" />,
+    aborted: <X className="w-3 h-3" />,
   };
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     const now = new Date();
-    if (d.toDateString() === now.toDateString()) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // Show relative time for recent sessions
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    // Show date for older sessions
+    if (d.getFullYear() === now.getFullYear()) {
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString([], { year: '2-digit', month: 'short', day: 'numeric' });
   };
 
   const formatModel = (model?: string) => {
@@ -870,32 +1048,53 @@ function SessionItem({ session, isActive, onSelect }: { session: SessionInfo; is
     return model.replace('claude-', '').replace(/-\d{8}$/, '');
   };
 
+  const displayTitle = session.title || `Session ${session.id.slice(0, 8)}`;
+
   return (
     <button
       onClick={() => onSelect(session)}
-      className={`w-full px-4 py-3 text-left rounded-lg border transition-colors ${
+      className={`group w-full px-3 py-2.5 text-left rounded-xl border transition-all duration-200 ${
         isActive
-          ? 'bg-[var(--accent-soft)] border-[var(--accent)]'
-          : 'bg-[var(--bg-secondary)] border-[var(--border-default)] hover:border-[var(--border-strong)]'
+          ? 'bg-[var(--accent-soft)] border-[var(--accent)] shadow-sm'
+          : 'bg-[var(--bg-secondary)] border-transparent hover:border-[var(--border-default)] hover:bg-[var(--hover-bg)] hover:shadow-sm'
       }`}
     >
-      <div className="flex items-center justify-between mb-0.5">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className={`w-2 h-2 shrink-0 rounded-full ${stateColors[session.state]} ${session.state === 'running' ? 'animate-pulse' : ''}`} />
-          <span className="text-sm text-[var(--text-primary)] truncate">
-            {session.title || session.id.slice(0, 16)}
-          </span>
+      <div className="flex items-start gap-2.5">
+        {/* State indicator */}
+        <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${
+          session.state === 'running'
+            ? 'bg-emerald-500/20 text-emerald-500'
+            : session.state === 'error'
+            ? 'bg-red-500/20 text-red-500'
+            : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]'
+        } ${session.state === 'running' ? 'animate-pulse' : ''}`}>
+          {stateIcons[session.state]}
         </div>
-        <span className="text-xs text-[var(--text-tertiary)] shrink-0 ml-2">{formatTime(session.startedAt)}</span>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-sm font-medium truncate ${isActive ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+              <HighlightText text={displayTitle} query={searchQuery} />
+            </span>
+            <span className="text-[10px] text-[var(--text-tertiary)] shrink-0 tabular-nums">
+              {formatTime(session.startedAt)}
+            </span>
+          </div>
+
+          {/* Meta info */}
+          <div className="flex items-center gap-2 mt-1">
+            {session.model && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] font-mono">
+                <HighlightText text={formatModel(session.model) || ''} query={searchQuery} />
+              </span>
+            )}
+            <span className="text-[9px] text-[var(--text-tertiary)] font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+              {session.id.slice(0, 8)}
+            </span>
+          </div>
+        </div>
       </div>
-      {/* Model badge */}
-      {session.model && (
-        <div className="pl-4 mt-1">
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] font-mono">
-            {formatModel(session.model)}
-          </span>
-        </div>
-      )}
     </button>
   );
 }
@@ -936,7 +1135,20 @@ function formatTokens(count?: number): string {
 }
 
 // Timeline item renderer
-function TimelineItemView({ item, isConsecutive }: { item: TimelineItem; isConsecutive?: boolean }) {
+import type { PermissionRequest } from './types';
+
+interface TimelineItemViewProps {
+  item: TimelineItem;
+  isConsecutive?: boolean;
+  pendingPermissions?: PermissionRequest[];
+  onPermissionRespond?: (
+    permissionId: string,
+    approved: boolean,
+    options?: { mode?: 'default' | 'acceptEdits'; allowTools?: string[] }
+  ) => void;
+}
+
+function TimelineItemView({ item, isConsecutive, pendingPermissions, onPermissionRespond }: TimelineItemViewProps) {
   if (item.type === 'user') {
     return (
       <div className="flex justify-end">
@@ -952,7 +1164,15 @@ function TimelineItemView({ item, isConsecutive }: { item: TimelineItem; isConse
   }
 
   if (item.type === 'tool' && item.tool) {
-    return <ToolCallCard tool={item.tool} />;
+    // Find pending permission for this tool
+    const permission = pendingPermissions?.find(p => p.toolUseId === item.tool?.id);
+    return (
+      <ToolCallCard
+        tool={item.tool}
+        permission={permission}
+        onPermissionRespond={onPermissionRespond}
+      />
+    );
   }
 
   if (item.type === 'assistant') {

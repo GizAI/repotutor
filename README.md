@@ -186,11 +186,14 @@ VNC_DISPLAY=:4
 |----------|-------------|----------|
 | `REPO_PATH` | Target repository path | Yes |
 | `ANTHROPIC_API_KEY` | Claude API key | For Chat |
-| `REPOTUTOR_PASSWORD` | Password protection | No |
+| `GIZ_CODE_PASSWORD` | Password protection (recommended) | No |
+| `REPOTUTOR_PASSWORD` | Password protection (legacy alias) | No |
 | `PORT` | Gateway port | No (3000) |
 | `NEXT_PORT` | Next.js port | No (3000) |
 | `VNC_PORT` | VNC server port | For Desktop |
 | `VNC_DISPLAY` | X display | For Desktop |
+
+**Note:** Authentication is enforced at gateway level. All routes except `/login`, `/api/auth/*`, `/_next/*`, `/locales/*` require authentication when password is set.
 
 ---
 

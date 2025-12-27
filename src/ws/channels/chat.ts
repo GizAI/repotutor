@@ -20,6 +20,15 @@ type SessionState = 'running' | 'completed' | 'error' | 'aborted';
 
 interface Event { type: string; data: unknown; ts: number; }
 
+// Pending permission request
+interface PendingPermission {
+  resolve: (result: { allowed: boolean; permissionsUpdate?: unknown[] }) => void;
+  reject: (error: Error) => void;
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+}
+
 interface Session {
   id: string;
   sdkSessionId?: string;
@@ -34,6 +43,8 @@ interface Session {
   cwd: string;
   model?: string;
   title?: string;
+  // Pending permission requests (for non-bypass mode)
+  pendingPermissions: Map<string, PendingPermission>;
 }
 
 // Serializable session info for persistence
@@ -379,6 +390,7 @@ export class ChatChannel implements Channel {
             this.sessions.set(rec.id, {
               ...rec,
               emitter: new EventEmitter(),
+              pendingPermissions: new Map(),
             });
           }
         }
@@ -453,6 +465,7 @@ export class ChatChannel implements Channel {
       case 'load': await this.loadSession(socket, p.sessionId as string); break;
       case 'models': await this.getModels(socket); break;
       case 'commands': await this.getCommands(socket); break;
+      case 'permission_response': this.handlePermissionResponse(p); break;
       default: throw new Error(`Unknown action: ${action}`);
     }
   }
@@ -489,6 +502,7 @@ export class ChatChannel implements Channel {
       title,
       // If resuming a Claude Code session, set sdkSessionId for resume
       sdkSessionId: isClaudeSession ? resume : undefined,
+      pendingPermissions: new Map(),
     };
     session.emitter.setMaxListeners(100);
     this.sessions.set(sid, session);
@@ -535,6 +549,55 @@ export class ChatChannel implements Channel {
         permissionMode,
         allowDangerouslySkipPermissions: permissionMode === 'bypassPermissions',
       };
+
+      // Add canUseTool callback for non-bypass modes
+      if (permissionMode !== 'bypassPermissions') {
+        options.canUseTool = async (params: {
+          toolName: string;
+          toolInput: Record<string, unknown>;
+          toolUseId: string;
+          signal: AbortSignal;
+          suggestions?: unknown[];
+          blockedPath?: string;
+          decisionReason?: string;
+        }) => {
+          const permId = `perm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+          // Send permission request to client
+          this.bufferAndBroadcast(sid, {
+            type: 'permission_request',
+            data: {
+              id: permId,
+              toolName: params.toolName,
+              toolInput: params.toolInput,
+              toolUseId: params.toolUseId,
+              decisionReason: params.decisionReason,
+              blockedPath: params.blockedPath,
+              suggestions: params.suggestions,
+            },
+            ts: Date.now(),
+          });
+
+          // Wait for user response
+          return new Promise<{ allowed: boolean; permissionsUpdate?: unknown[] }>((resolve, reject) => {
+            session.pendingPermissions.set(permId, {
+              resolve,
+              reject,
+              toolName: params.toolName,
+              toolInput: params.toolInput as Record<string, unknown>,
+              toolUseId: params.toolUseId,
+            });
+
+            // Timeout after 5 minutes
+            setTimeout(() => {
+              if (session.pendingPermissions.has(permId)) {
+                session.pendingPermissions.delete(permId);
+                resolve({ allowed: false }); // Deny on timeout
+              }
+            }, 5 * 60 * 1000);
+          });
+        };
+      }
 
       // Model selection
       if (model) {
@@ -1156,5 +1219,57 @@ export class ChatChannel implements Channel {
       console.error('[chat] Failed to get commands:', e);
       socket.emit('chat:commands', { commands: [] });
     }
+  }
+
+  /**
+   * Handle permission response from client
+   */
+  private handlePermissionResponse(p: Record<string, unknown>) {
+    const { sessionId, id, approved, mode, allowTools } = p as {
+      sessionId: string;
+      id: string;
+      approved: boolean;
+      mode?: 'default' | 'acceptEdits';
+      allowTools?: string[];
+    };
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.warn(`[chat] Permission response for unknown session: ${sessionId}`);
+      return;
+    }
+
+    const pending = session.pendingPermissions.get(id);
+    if (!pending) {
+      console.warn(`[chat] Permission response for unknown permission: ${id}`);
+      return;
+    }
+
+    // Remove from pending
+    session.pendingPermissions.delete(id);
+
+    // Build permissionsUpdate for SDK (if user chose session-wide permissions)
+    const permissionsUpdate: unknown[] = [];
+
+    if (mode === 'acceptEdits') {
+      // Allow all edit-type tools for the session
+      permissionsUpdate.push({ type: 'accept_edits' });
+    }
+
+    if (allowTools?.length) {
+      // Allow specific tools for the session
+      for (const tool of allowTools) {
+        permissionsUpdate.push({ type: 'allow_tool', tool });
+      }
+    }
+
+    // Resolve the pending promise
+    pending.resolve({
+      allowed: approved,
+      permissionsUpdate: permissionsUpdate.length > 0 ? permissionsUpdate : undefined,
+    });
+
+    // Broadcast resolution to UI
+    this.broadcast(sessionId, 'chat:permission_resolved', { id, approved });
   }
 }

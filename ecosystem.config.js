@@ -1,3 +1,6 @@
+// Load .env.local and pass all env vars
+require('dotenv').config({ path: '/home/user/code/.env.local' });
+
 module.exports = {
   apps: [
     {
@@ -5,6 +8,7 @@ module.exports = {
       cwd: '/home/user/code/.next/standalone',
       script: 'server.js',
       env: {
+        ...process.env,
         NODE_ENV: 'production',
         PORT: 7001,
       },
