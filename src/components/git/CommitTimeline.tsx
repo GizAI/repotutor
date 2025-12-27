@@ -210,7 +210,7 @@ export function CommitTimeline({ embedded = false, onCommitSelect }: CommitTimel
 
       {/* Commit Detail Modal - Full screen on mobile */}
       <Dialog open={!!selectedCommit} onOpenChange={() => { setSelectedCommit(null); setCommitDiff(null); }}>
-        <DialogContent className="w-full h-full max-w-full max-h-full sm:max-w-4xl sm:max-h-[85vh] sm:h-auto rounded-none sm:rounded-lg flex flex-col p-0 gap-0">
+        <DialogContent fullScreenMobile className="sm:max-w-4xl flex flex-col p-0 gap-0">
           {selectedCommit && (
             <>
               <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">

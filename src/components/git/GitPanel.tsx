@@ -192,7 +192,7 @@ export function GitPanel({ isOpen, onClose, embedded = false }: GitPanelProps) {
 
       {/* Diff Modal - Full screen on mobile */}
       <Dialog open={!!diffModal} onOpenChange={() => setDiffModal(null)}>
-        <DialogContent className="w-full h-full max-w-full max-h-full sm:max-w-4xl sm:max-h-[85vh] sm:h-auto rounded-none sm:rounded-lg flex flex-col p-0 gap-0">
+        <DialogContent fullScreenMobile className="sm:max-w-4xl flex flex-col p-0 gap-0">
           {diffModal && (
             <>
               <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b flex-row items-center justify-between pr-14 shrink-0">
@@ -279,6 +279,13 @@ function ChangesTab({
     }
   };
 
+  const fileGroups = [
+    { title: 'Modified', files: status?.modified || [], type: 'modified' as const },
+    { title: 'Added', files: status?.added || [], type: 'added' as const },
+    { title: 'Deleted', files: status?.deleted || [], type: 'deleted' as const },
+    { title: 'Untracked', files: status?.untracked || [], type: 'untracked' as const },
+  ].filter((g) => g.files.length > 0);
+
   if (allFiles.length === 0) {
     return (
       <EmptyState
@@ -290,15 +297,42 @@ function ChangesTab({
     );
   }
 
-  const fileGroups = [
-    { title: 'Modified', files: status?.modified || [], type: 'modified' as const },
-    { title: 'Added', files: status?.added || [], type: 'added' as const },
-    { title: 'Deleted', files: status?.deleted || [], type: 'deleted' as const },
-    { title: 'Untracked', files: status?.untracked || [], type: 'untracked' as const },
-  ].filter((g) => g.files.length > 0);
-
   return (
     <div className="space-y-4">
+      {/* Commit form - TOP */}
+      <div className="pb-4 border-b">
+        <div className="relative">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Commit message..."
+            rows={2}
+            className="w-full p-3 pr-12 rounded-xl bg-muted border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={generateMessage}
+            disabled={generating || allFiles.length === 0}
+            className="absolute top-2.5 right-2.5"
+            title="Generate with Claude"
+          >
+            {generating ? <Spinner /> : <Sparkles className="h-4 w-4" />}
+          </Button>
+        </div>
+        <Button
+          className="w-full mt-3"
+          disabled={!message.trim() || isLoading}
+          onClick={() => {
+            onCommit(message, selected.size > 0 ? Array.from(selected) : undefined);
+            setMessage('');
+            setSelected(new Set());
+          }}
+        >
+          {!status?.hasCommits ? 'Create Initial Commit' : selected.size > 0 ? `Commit (${selected.size} files)` : 'Commit All'}
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{allFiles.length} changed files</span>
         <button onClick={selectAll} className="text-xs text-primary font-medium hover:underline">
@@ -316,40 +350,6 @@ function ChangesTab({
           onDiscard={onDiscard}
         />
       ))}
-
-      {/* Commit form */}
-      <div className="pt-4 border-t">
-        <div className="relative">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Commit message..."
-            rows={3}
-            className="w-full p-3 pr-12 rounded-xl bg-muted border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={generateMessage}
-            disabled={generating || allFiles.length === 0}
-            className="absolute top-2.5 right-2.5"
-            title="Generate with AI"
-          >
-            {generating ? <Spinner /> : <Sparkles className="h-4 w-4" />}
-          </Button>
-        </div>
-        <Button
-          className="w-full mt-3"
-          disabled={!message.trim() || isLoading}
-          onClick={() => {
-            onCommit(message, selected.size > 0 ? Array.from(selected) : undefined);
-            setMessage('');
-            setSelected(new Set());
-          }}
-        >
-          {!status?.hasCommits ? 'Create Initial Commit' : selected.size > 0 ? `Commit (${selected.size} files)` : 'Commit All'}
-        </Button>
-      </div>
     </div>
   );
 }

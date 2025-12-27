@@ -1,133 +1,36 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { DiffView, DiffModeEnum } from '@git-diff-view/react';
-import { DiffFile, DiffHighlighterLang } from '@git-diff-view/core';
-import '@git-diff-view/react/styles/diff-view.css';
+import { useState, useMemo, Fragment } from 'react';
+import { parseDiff, Diff, Hunk, Decoration, ViewType } from 'react-diff-view';
+import type { HunkData } from 'react-diff-view';
 import { useThemeContext } from '@/components/layout/ThemeProvider';
 import { SplitSquareHorizontal, AlignJustify, WrapText } from 'lucide-react';
+import 'react-diff-view/style/index.css';
 
 interface DiffViewerProps {
   diff: string;
   fileName?: string;
-  language?: string;
   className?: string;
 }
 
-// Parse unified diff to extract file info and hunks
-function parseUnifiedDiff(diff: string): { oldFile: string; newFile: string; hunks: string[] } {
-  const lines = diff.split('\n');
-  let oldFile = '';
-  let newFile = '';
-  const hunks: string[] = [];
-  let currentHunk: string[] = [];
-  let inHunk = false;
-
-  for (const line of lines) {
-    if (line.startsWith('--- ')) {
-      oldFile = line.slice(4).replace(/^a\//, '');
-    } else if (line.startsWith('+++ ')) {
-      newFile = line.slice(4).replace(/^b\//, '');
-    } else if (line.startsWith('@@')) {
-      // Start of a new hunk
-      if (currentHunk.length > 0) {
-        hunks.push(currentHunk.join('\n'));
-      }
-      currentHunk = [line];
-      inHunk = true;
-    } else if (inHunk) {
-      currentHunk.push(line);
-    }
-  }
-
-  // Push the last hunk
-  if (currentHunk.length > 0) {
-    hunks.push(currentHunk.join('\n'));
-  }
-
-  return { oldFile, newFile, hunks: hunks.length > 0 ? hunks : [diff] };
-}
-
-// Detect language from filename - returns DiffHighlighterLang compatible string
-function detectLanguage(fileName: string): DiffHighlighterLang {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  const langMap: Record<string, DiffHighlighterLang> = {
-    ts: 'typescript',
-    tsx: 'tsx',
-    js: 'javascript',
-    jsx: 'jsx',
-    py: 'python',
-    rb: 'ruby',
-    go: 'go',
-    rs: 'rust',
-    java: 'java',
-    kt: 'kotlin',
-    swift: 'swift',
-    c: 'c',
-    cpp: 'cpp',
-    h: 'c',
-    hpp: 'cpp',
-    cs: 'csharp',
-    php: 'php',
-    html: 'xml',
-    css: 'css',
-    scss: 'scss',
-    less: 'less',
-    json: 'json',
-    yaml: 'yaml',
-    yml: 'yaml',
-    md: 'markdown',
-    mdx: 'markdown',
-    sql: 'sql',
-    sh: 'bash',
-    bash: 'bash',
-    zsh: 'bash',
-    dockerfile: 'dockerfile',
-    graphql: 'graphql',
-    vue: 'vue',
-  };
-  return langMap[ext] || 'plaintext';
-}
-
-export function DiffViewer({ diff, fileName, language, className = '' }: DiffViewerProps) {
+export function DiffViewer({ diff, fileName, className = '' }: DiffViewerProps) {
   const { resolvedTheme } = useThemeContext();
-  const [mode, setMode] = useState<DiffModeEnum>(DiffModeEnum.Split);
+  const [viewType, setViewType] = useState<ViewType>('unified');
   const [wrap, setWrap] = useState(true);
-  const highlight = true;
 
-  const diffFile = useMemo(() => {
-    if (!diff) return null;
-
+  const files = useMemo(() => {
+    if (!diff || diff.trim() === '') {
+      return [];
+    }
     try {
-      const { oldFile, newFile, hunks } = parseUnifiedDiff(diff);
-      const detectedLang = (language as DiffHighlighterLang) || detectLanguage(fileName || newFile || oldFile || '');
-
-      // Create DiffFile instance from unified diff
-      const instance = DiffFile.createInstance({
-        newFile: {
-          fileName: newFile || fileName || 'file',
-          fileLang: detectedLang,
-          content: '',
-        },
-        oldFile: {
-          fileName: oldFile || fileName || 'file',
-          fileLang: detectedLang,
-          content: '',
-        },
-        hunks,
-      });
-
-      // Initialize the diff file for rendering
-      instance.init();
-
-      return instance;
+      return parseDiff(diff, { nearbySequences: 'zip' });
     } catch (e) {
       console.error('Failed to parse diff:', e);
-      return null;
+      return [];
     }
-  }, [diff, fileName, language]);
+  }, [diff]);
 
-  if (!diff) {
+  if (!diff || files.length === 0) {
     return (
       <div className={`flex items-center justify-center p-8 text-muted-foreground text-sm ${className}`}>
         No changes to display
@@ -135,20 +38,17 @@ export function DiffViewer({ diff, fileName, language, className = '' }: DiffVie
     );
   }
 
-  // Fallback to simple view if parsing fails
-  if (!diffFile) {
-    return <SimpleDiffViewer diff={diff} className={className} />;
-  }
+  const isDark = resolvedTheme === 'dark';
 
   return (
-    <div className={`diff-viewer-container ${className}`}>
+    <div className={`diff-viewer-container ${isDark ? 'diff-dark' : ''} ${className}`}>
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border-default)] bg-[var(--bg-secondary)]">
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setMode(DiffModeEnum.Split)}
+            onClick={() => setViewType('split')}
             className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
-              mode === DiffModeEnum.Split
+              viewType === 'split'
                 ? 'bg-[var(--accent)] text-white'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
             }`}
@@ -158,9 +58,9 @@ export function DiffViewer({ diff, fileName, language, className = '' }: DiffVie
             <span className="hidden sm:inline">Split</span>
           </button>
           <button
-            onClick={() => setMode(DiffModeEnum.Unified)}
+            onClick={() => setViewType('unified')}
             className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
-              mode === DiffModeEnum.Unified
+              viewType === 'unified'
                 ? 'bg-[var(--accent)] text-white'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)]'
             }`}
@@ -171,7 +71,12 @@ export function DiffViewer({ diff, fileName, language, className = '' }: DiffVie
           </button>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {fileName && (
+            <span className="text-xs font-mono text-[var(--text-tertiary)] truncate max-w-[200px]">
+              {fileName}
+            </span>
+          )}
           <button
             onClick={() => setWrap(!wrap)}
             className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${
@@ -186,90 +91,113 @@ export function DiffViewer({ diff, fileName, language, className = '' }: DiffVie
         </div>
       </div>
 
-      {/* Diff View */}
+      {/* Diff Content */}
       <div
-        className="diff-view-wrapper overflow-auto"
-        style={{
-          maxHeight: 'calc(80vh - 120px)',
-          colorScheme: resolvedTheme === 'dark' ? 'dark' : 'light',
-        }}
+        className={`overflow-auto bg-[var(--bg-tertiary)] ${wrap ? 'diff-wrap' : ''}`}
+        style={{ maxHeight: 'calc(100vh - 200px)' }}
       >
-        <DiffView
-          diffFile={diffFile}
-          diffViewMode={mode}
-          diffViewTheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-          diffViewWrap={wrap}
-          diffViewHighlight={highlight}
-          diffViewFontSize={13}
-        />
+        {files.map((file, index) => (
+          <div key={index} className="diff-file">
+            {file.oldPath && file.newPath && (
+              <div className="diff-file-header px-3 py-2 text-xs font-mono bg-[var(--bg-secondary)] border-b border-[var(--border-default)] text-[var(--text-secondary)]">
+                {file.oldPath === file.newPath ? file.oldPath : `${file.oldPath} → ${file.newPath}`}
+              </div>
+            )}
+            <Diff
+              viewType={viewType}
+              diffType={file.type}
+              hunks={file.hunks}
+              className="diff-table"
+            >
+              {(hunks: HunkData[]) =>
+                hunks.flatMap((hunk) => [
+                  <Decoration key={`decoration-${hunk.content}`}>
+                    <div className="diff-hunk-header px-3 py-1 text-xs font-mono text-blue-500 bg-blue-500/10">
+                      {hunk.content}
+                    </div>
+                  </Decoration>,
+                  <Hunk key={`hunk-${hunk.content}`} hunk={hunk} />,
+                ])
+              }
+            </Diff>
+          </div>
+        ))}
       </div>
 
-      {/* Custom styles */}
       <style jsx global>{`
-        .diff-view-wrapper {
-          --diff-add-color: ${resolvedTheme === 'dark' ? 'rgba(46, 160, 67, 0.15)' : 'rgba(46, 160, 67, 0.2)'};
-          --diff-del-color: ${resolvedTheme === 'dark' ? 'rgba(248, 81, 73, 0.15)' : 'rgba(248, 81, 73, 0.2)'};
-          --diff-add-highlight-color: ${resolvedTheme === 'dark' ? 'rgba(46, 160, 67, 0.4)' : 'rgba(46, 160, 67, 0.4)'};
-          --diff-del-highlight-color: ${resolvedTheme === 'dark' ? 'rgba(248, 81, 73, 0.4)' : 'rgba(248, 81, 73, 0.4)'};
+        .diff-viewer-container .diff-table {
+          font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+          font-size: 13px;
+          line-height: 1.5;
+          width: 100%;
         }
 
-        .diff-view-wrapper .diff-line-num {
+        .diff-viewer-container .diff-gutter {
+          width: 50px;
+          padding: 0 8px;
+          text-align: right;
           color: var(--text-tertiary);
-          font-size: 12px;
+          user-select: none;
+          background: var(--bg-secondary);
         }
 
-        .diff-view-wrapper .diff-line-content {
-          font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        .diff-viewer-container .diff-code {
+          padding: 0 12px;
         }
 
-        .diff-view-wrapper .diff-split-line:hover,
-        .diff-view-wrapper .diff-unified-line:hover {
-          filter: brightness(1.1);
+        .diff-viewer-container .diff-code-insert {
+          background-color: rgba(34, 197, 94, 0.15);
+        }
+
+        .diff-viewer-container .diff-code-delete {
+          background-color: rgba(239, 68, 68, 0.15);
+        }
+
+        .diff-viewer-container .diff-gutter-insert {
+          background-color: rgba(34, 197, 94, 0.2);
+          color: rgb(22, 163, 74);
+        }
+
+        .diff-viewer-container .diff-gutter-delete {
+          background-color: rgba(239, 68, 68, 0.2);
+          color: rgb(220, 38, 38);
+        }
+
+        .diff-dark .diff-code-insert {
+          background-color: rgba(34, 197, 94, 0.1);
+        }
+
+        .diff-dark .diff-code-delete {
+          background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        .diff-dark .diff-gutter-insert {
+          background-color: rgba(34, 197, 94, 0.15);
+          color: rgb(74, 222, 128);
+        }
+
+        .diff-dark .diff-gutter-delete {
+          background-color: rgba(239, 68, 68, 0.15);
+          color: rgb(248, 113, 113);
+        }
+
+        .diff-wrap .diff-code {
+          white-space: pre-wrap;
+          word-break: break-all;
+        }
+
+        .diff-viewer-container .diff-line:hover .diff-code {
+          background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        .diff-dark .diff-line:hover .diff-code {
+          background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .diff-viewer-container .diff-widget {
+          background: var(--bg-tertiary);
         }
       `}</style>
-    </div>
-  );
-}
-
-// Simple fallback diff viewer
-function SimpleDiffViewer({ diff, className = '' }: { diff: string; className?: string }) {
-  const renderDiffLine = (line: string, index: number) => {
-    const isAddition = line.startsWith('+') && !line.startsWith('+++');
-    const isDeletion = line.startsWith('-') && !line.startsWith('---');
-    const isHeader = line.startsWith('@@');
-    const isFileHeader = line.startsWith('+++') || line.startsWith('---');
-
-    let bgClass = '';
-    let textClass = 'text-[var(--text-secondary)]';
-
-    if (isAddition) {
-      bgClass = 'bg-green-500/15';
-      textClass = 'text-green-600 dark:text-green-400';
-    } else if (isDeletion) {
-      bgClass = 'bg-red-500/15';
-      textClass = 'text-red-600 dark:text-red-400';
-    } else if (isHeader) {
-      bgClass = 'bg-blue-500/10';
-      textClass = 'text-blue-600 dark:text-blue-400 font-medium';
-    } else if (isFileHeader) {
-      textClass = 'text-[var(--text-tertiary)] font-semibold';
-    }
-
-    return (
-      <div
-        key={index}
-        className={`font-mono text-[13px] leading-5 px-3 py-px ${bgClass} ${textClass} whitespace-pre`}
-      >
-        {line || ' '}
-      </div>
-    );
-  };
-
-  return (
-    <div className={`border border-[var(--border-default)] rounded-lg overflow-hidden ${className}`}>
-      <div className="overflow-auto max-h-[60vh] bg-[var(--bg-tertiary)]">
-        {diff.split('\n').map((line, index) => renderDiffLine(line, index))}
-      </div>
     </div>
   );
 }

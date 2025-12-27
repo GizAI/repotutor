@@ -9,10 +9,12 @@ import { TerminalSessionList } from './TerminalSessionList';
 import type { Terminal as XTerminal } from 'xterm';
 import type { FitAddon as XFitAddon } from '@xterm/addon-fit';
 
-// Hook to get keyboard position (works on iOS and Android)
-// Returns bottom offset accounting for scroll position
-function useKeyboardBottom() {
-  const [bottom, setBottom] = useState(0);
+// Tab bar height (h-10 = 40px) - used to position toolbar above tab bar when keyboard is open
+const TAB_BAR_HEIGHT = 40;
+
+// Hook to get keyboard info including scroll offset
+function useKeyboardInfo() {
+  const [info, setInfo] = useState({ height: 0, scrollOffset: 0 });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -21,15 +23,13 @@ function useKeyboardBottom() {
     if (!vv) return;
 
     const update = () => {
-      // Keyboard height = difference between window and visual viewport
       const kbHeight = window.innerHeight - vv.height;
-      if (kbHeight > 0) {
-        // Account for scroll offset - toolbar should stick to keyboard top
-        const scrollOffset = vv.offsetTop;
-        setBottom(kbHeight - scrollOffset);
-      } else {
-        setBottom(0);
-      }
+      // offsetTop: how much the viewport has scrolled (iOS keyboard pushes content up)
+      const scrollOffset = vv.offsetTop;
+      setInfo({
+        height: kbHeight > 100 ? kbHeight : 0,
+        scrollOffset: kbHeight > 100 ? scrollOffset : 0,
+      });
     };
 
     vv.addEventListener('resize', update);
@@ -42,7 +42,7 @@ function useKeyboardBottom() {
     };
   }, []);
 
-  return bottom;
+  return info;
 }
 
 interface WebTerminalProps {
@@ -89,7 +89,7 @@ export function WebTerminal({
   const [ready, setReady] = useState(false);
   const [isTouch] = useState(() => isTouchDevice());
   const { t } = useT();
-  const keyboardBottom = useKeyboardBottom();
+  const { height: keyboardHeight, scrollOffset } = useKeyboardInfo();
 
   // Session list modal
   const [showSessionList, setShowSessionList] = useState(false);
@@ -97,6 +97,8 @@ export function WebTerminal({
   // Toolbar states
   const [showTextInput, setShowTextInput] = useState(false);
   const [textInputValue, setTextInputValue] = useState('');
+  const [showFnKeys, setShowFnKeys] = useState(false);
+  const [showNavKeys, setShowNavKeys] = useState(false);
 
   // Command history
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -354,6 +356,9 @@ export function WebTerminal({
   const ctrlDownRef = useRef(false);
   const altDownRef = useRef(false);
 
+  // Selection mode for mobile text selection
+  const [selectMode, setSelectMode] = useState(false);
+
   // Keep refs in sync with state
   useEffect(() => {
     ctrlDownRef.current = ctrlDown;
@@ -362,6 +367,40 @@ export function WebTerminal({
   useEffect(() => {
     altDownRef.current = altDown;
   }, [altDown]);
+
+  // Toggle xterm textarea disabled state for selection mode
+  useEffect(() => {
+    const textarea = containerRef.current?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.disabled = selectMode;
+    }
+
+    // Block xterm touch events in select mode to allow native text selection
+    const viewport = containerRef.current?.querySelector('.xterm-viewport') as HTMLElement;
+    const screen = containerRef.current?.querySelector('.xterm-screen') as HTMLElement;
+    if (viewport && screen) {
+      if (selectMode) {
+        // Allow browser default touch behavior
+        viewport.style.touchAction = 'auto';
+        screen.style.touchAction = 'auto';
+        viewport.style.pointerEvents = 'none';
+        screen.style.pointerEvents = 'auto';
+        screen.style.userSelect = 'text';
+        (screen.style as unknown as Record<string, string>).webkitUserSelect = 'text';
+      } else {
+        // Restore xterm touch handling
+        viewport.style.touchAction = '';
+        screen.style.touchAction = '';
+        viewport.style.pointerEvents = '';
+        screen.style.pointerEvents = '';
+        screen.style.userSelect = '';
+        (screen.style as unknown as Record<string, string>).webkitUserSelect = '';
+      }
+    }
+  }, [selectMode]);
+
+  // Note: Removed auto-exit from selection mode on selectionchange
+  // User must explicitly tap Sel button again to exit select mode
 
   // Send control character (Ctrl+key)
   const sendCtrlKey = useCallback(
@@ -525,6 +564,12 @@ export function WebTerminal({
             userSelect: 'text',
           }}
         />
+        {/* Selection mode indicator */}
+        {selectMode && (
+          <div className="absolute top-2 right-2 px-2 py-1 bg-[var(--accent)] text-white text-xs rounded-full">
+            Select Mode
+          </div>
+        )}
         {!connected && ready && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="text-[var(--text-secondary)] text-sm">{t('terminal.connecting')}</div>
@@ -543,13 +588,13 @@ export function WebTerminal({
         )}
       </div>
 
-      {/* Mobile Toolbar - fixed above keyboard when open, hidden when tab not active */}
-      {isTouch && isActive && (
+      {/* Mobile Toolbar - fixed when keyboard open, static when closed */}
+      {(isTouch || true) && isActive && ( /* DEBUG */
         <div
-          className="shrink-0 bg-[var(--bg-primary)] border-t border-[var(--border-default)]"
-          style={keyboardBottom > 0 ? {
+          className="bg-[var(--bg-secondary)] shrink-0"
+          style={keyboardHeight > 0 ? {
             position: 'fixed',
-            bottom: keyboardBottom,
+            bottom: Math.max(0, keyboardHeight - TAB_BAR_HEIGHT - scrollOffset),
             left: 0,
             right: 0,
             zIndex: 50,
@@ -592,15 +637,88 @@ export function WebTerminal({
             </div>
           )}
 
+          {/* Function Keys Row (collapsible) */}
+          {showFnKeys && (
+            <div className="h-10 flex items-center overflow-x-auto scrollbar-hide border-b border-[var(--border-default)] bg-[var(--bg-tertiary)]">
+              <div className="flex items-center gap-1 px-2 min-w-max">
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => (
+                  <button
+                    key={`f${n}`}
+                    onTouchStart={preventDismiss}
+                    onMouseDown={preventDismiss}
+                    onClick={() => {
+                      const seq = n <= 4
+                        ? `\x1bO${'PQRS'[n-1]}`
+                        : `\x1b[${[15,17,18,19,20,21,23,24][n-5]}~`;
+                      sendEscape(seq);
+                    }}
+                    className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95"
+                  >
+                    F{n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Keys Row (collapsible) */}
+          {showNavKeys && (
+            <div className="h-10 flex items-center overflow-x-auto scrollbar-hide border-b border-[var(--border-default)] bg-[var(--bg-tertiary)]">
+              <div className="flex items-center gap-1 px-2 min-w-max">
+                <button onTouchStart={preventDismiss} onMouseDown={preventDismiss} onClick={() => sendEscape('\x1b[H')} className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95">Home</button>
+                <button onTouchStart={preventDismiss} onMouseDown={preventDismiss} onClick={() => sendEscape('\x1b[F')} className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95">End</button>
+                <button onTouchStart={preventDismiss} onMouseDown={preventDismiss} onClick={() => sendEscape('\x1b[5~')} className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95">PgUp</button>
+                <button onTouchStart={preventDismiss} onMouseDown={preventDismiss} onClick={() => sendEscape('\x1b[6~')} className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95">PgDn</button>
+                <button onTouchStart={preventDismiss} onMouseDown={preventDismiss} onClick={() => sendEscape('\x1b[2~')} className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95">Ins</button>
+                <button onTouchStart={preventDismiss} onMouseDown={preventDismiss} onClick={() => sendEscape('\x1b[3~')} className="h-7 px-2 text-xs font-medium rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-default)] active:scale-95">Del</button>
+              </div>
+            </div>
+          )}
+
           {/* Scrollable Toolbar */}
-          <div className="h-11 flex items-center overflow-x-auto scrollbar-hide">
-            <div className="flex items-center gap-1.5 px-2 min-w-max">
+          <div className="h-12 flex items-center overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-2 px-3 min-w-max">
+              {/* Selection Mode Toggle - First */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => setSelectMode(!selectMode)}
+                className={`h-9 px-2 text-xs font-medium rounded-lg ${selectMode ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
+                title="Toggle selection mode for text copy"
+              >
+                Sel
+              </button>
+              {/* Copy button - visible in select mode */}
+              {selectMode && (
+                <button
+                  onTouchStart={preventDismiss}
+                  onMouseDown={preventDismiss}
+                  onClick={() => {
+                    const selection = terminalRef.current?.getSelection();
+                    if (selection) {
+                      navigator.clipboard.writeText(selection);
+                      // Brief visual feedback
+                      const btn = document.activeElement as HTMLButtonElement;
+                      if (btn) {
+                        btn.textContent = '✓';
+                        setTimeout(() => { btn.textContent = 'Copy'; }, 500);
+                      }
+                    }
+                  }}
+                  className="h-9 px-2 text-xs font-medium rounded-lg bg-green-600 text-white active:scale-95 transition-transform"
+                >
+                  Copy
+                </button>
+              )}
+
+              <div className="w-px h-6 bg-[var(--border-strong)]" />
+
               {/* Modifier Keys */}
               <button
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => setCtrlDown(!ctrlDown)}
-                className={`px-3 py-1.5 text-xs rounded ${ctrlDown ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'} active:bg-[var(--hover-bg)]`}
+                className={`min-w-[44px] h-9 px-3 text-sm font-medium rounded-lg ${ctrlDown ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
               >
                 Ctrl
               </button>
@@ -608,19 +726,19 @@ export function WebTerminal({
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => setAltDown(!altDown)}
-                className={`px-3 py-1.5 text-xs rounded ${altDown ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'} active:bg-[var(--hover-bg)]`}
+                className={`min-w-[44px] h-9 px-3 text-sm font-medium rounded-lg ${altDown ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
               >
                 Alt
               </button>
 
-              <div className="w-px h-5 bg-[var(--border-default)]" />
+              <div className="w-px h-6 bg-[var(--border-strong)]" />
 
               {/* Special Keys */}
               <button
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => sendEscape('\x1b')}
-                className="px-3 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+                className="min-w-[44px] h-9 px-3 text-sm font-medium rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)] active:scale-95 transition-transform"
               >
                 Esc
               </button>
@@ -628,19 +746,39 @@ export function WebTerminal({
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => sendKey('\t')}
-                className="px-3 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+                className="min-w-[44px] h-9 px-3 text-sm font-medium rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)] active:scale-95 transition-transform"
               >
                 Tab
               </button>
 
-              <div className="w-px h-5 bg-[var(--border-default)]" />
+              <div className="w-px h-6 bg-[var(--border-strong)]" />
+
+              {/* Fn & Nav toggles - before arrows */}
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => setShowFnKeys(!showFnKeys)}
+                className={`h-9 px-2 text-xs font-medium rounded-lg ${showFnKeys ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
+              >
+                Fn
+              </button>
+              <button
+                onTouchStart={preventDismiss}
+                onMouseDown={preventDismiss}
+                onClick={() => setShowNavKeys(!showNavKeys)}
+                className={`h-9 px-2 text-xs font-medium rounded-lg ${showNavKeys ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
+              >
+                Nav
+              </button>
+
+              <div className="w-px h-6 bg-[var(--border-strong)]" />
 
               {/* Arrow Keys */}
               <button
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => sendEscape('\x1b[A')}
-                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+                className="w-9 h-9 text-base font-medium rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)] active:scale-95 transition-transform"
               >
                 ↑
               </button>
@@ -648,7 +786,7 @@ export function WebTerminal({
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => sendEscape('\x1b[B')}
-                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+                className="w-9 h-9 text-base font-medium rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)] active:scale-95 transition-transform"
               >
                 ↓
               </button>
@@ -656,7 +794,7 @@ export function WebTerminal({
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => sendEscape('\x1b[D')}
-                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+                className="w-9 h-9 text-base font-medium rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)] active:scale-95 transition-transform"
               >
                 ←
               </button>
@@ -664,12 +802,12 @@ export function WebTerminal({
                 onTouchStart={preventDismiss}
                 onMouseDown={preventDismiss}
                 onClick={() => sendEscape('\x1b[C')}
-                className="px-2.5 py-1.5 text-xs rounded bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--hover-bg)]"
+                className="w-9 h-9 text-base font-medium rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)] active:scale-95 transition-transform"
               >
                 →
               </button>
 
-              <div className="w-px h-5 bg-[var(--border-default)]" />
+              <div className="w-px h-6 bg-[var(--border-strong)]" />
 
               {/* Text Input & History */}
               <button
@@ -679,7 +817,7 @@ export function WebTerminal({
                   setShowTextInput(!showTextInput);
                   if (!showTextInput) setShowHistory(false);
                 }}
-                className={`px-2.5 py-1.5 text-xs rounded ${showTextInput ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
+                className={`w-9 h-9 text-base rounded-lg ${showTextInput ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
               >
                 ⌨
               </button>
@@ -690,7 +828,7 @@ export function WebTerminal({
                   setShowHistory(!showHistory);
                   if (!showHistory) setShowTextInput(true);
                 }}
-                className={`px-2.5 py-1.5 text-xs rounded ${showHistory ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
+                className={`w-9 h-9 text-base rounded-lg ${showHistory ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-default)]'} active:scale-95 transition-transform`}
               >
                 ↺
               </button>

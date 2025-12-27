@@ -391,13 +391,13 @@ export function CommitGraph({ embedded = false, onCommitSelect }: CommitGraphPro
               }}
             />
 
-            {/* Panel */}
+            {/* Panel - Full screen on mobile */}
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="absolute right-0 top-0 h-full w-full max-w-lg bg-[var(--bg-primary)] border-l border-[var(--border-default)] flex flex-col"
+              className="absolute right-0 top-0 h-full w-full sm:max-w-lg bg-[var(--bg-primary)] sm:border-l border-[var(--border-default)] flex flex-col"
             >
               <header className="flex items-center gap-3 h-14 px-4 border-b border-[var(--border-default)] shrink-0">
                 <button

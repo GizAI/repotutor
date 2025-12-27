@@ -49,6 +49,94 @@ interface McpServerInfo {
   status: 'connected' | 'failed' | 'pending';
 }
 
+// Model info from SDK
+export interface ModelInfo {
+  value: string;
+  displayName: string;
+  description: string;
+}
+
+// Slash command info from SDK
+export interface SlashCommand {
+  name: string;
+  description: string;
+  argumentHint?: string;
+}
+
+// Permission modes (same as Claude Code CLI)
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+
+export const PERMISSION_MODES: { mode: PermissionMode; label: string; icon: string; color: string }[] = [
+  { mode: 'default', label: 'Ask', icon: '🔒', color: 'text-blue-500' },
+  { mode: 'acceptEdits', label: 'Auto-Edit', icon: '✏️', color: 'text-amber-500' },
+  { mode: 'bypassPermissions', label: 'YOLO', icon: '⚡', color: 'text-red-500' },
+  { mode: 'plan', label: 'Plan', icon: '📋', color: 'text-purple-500' },
+];
+
+// Commands to hide from UI (internal/rarely used)
+const IGNORED_COMMANDS = new Set([
+  'exit', 'doctor', 'install-github-app', 'migrate-installer',
+  'statusline', 'bashes', 'agents', 'terminal-setup', 'ide',
+  'release-notes', 'resume', 'hooks', 'settings',
+]);
+
+// Slash command descriptions (from Claude Code CLI)
+const COMMAND_DESCRIPTIONS: Record<string, string> = {
+  // Core commands
+  'help': 'Show available commands',
+  'clear': 'Clear conversation history',
+  'compact': 'Compact conversation to reduce tokens',
+  'config': 'View or modify configuration',
+  'cost': 'Show session cost breakdown',
+  'doctor': 'Check system health',
+  'init': 'Initialize Claude Code in directory',
+  'login': 'Authenticate with Anthropic',
+  'logout': 'Log out from Anthropic',
+  'memory': 'View or edit CLAUDE.md memory',
+  'model': 'Switch model (sonnet, opus, haiku)',
+  'permissions': 'Manage file/tool permissions',
+  'status': 'Show current session status',
+  'vim': 'Toggle vim keybindings',
+  // Planning & Review
+  'plan': 'Create an implementation plan',
+  'review': 'Review code changes',
+  'pr-comments': 'View PR comments',
+  'bug': 'Report a bug',
+  // Git
+  'commit': 'Create a git commit',
+  'diff': 'Show git diff',
+  // MCP
+  'mcp': 'Manage MCP servers',
+  'install-github-app': 'Install GitHub MCP app',
+  // System
+  'terminal-setup': 'Setup terminal integration',
+  'ide': 'Connect to IDE',
+  'upgrade': 'Upgrade Claude Code',
+  'export': 'Export conversation',
+  // Context
+  'add-dir': 'Add directory to context',
+  'context': 'Show current context',
+};
+
+const COMMAND_ARGUMENT_HINTS: Record<string, string> = {
+  'model': '<model>',
+  'add-dir': '<path>',
+  'commit': '[message]',
+  'config': '[key] [value]',
+  'export': '[format]',
+  'memory': '[add|edit|clear]',
+  'mcp': '[add|remove|list]',
+  'review': '[file]',
+};
+
+function getCommandDescription(name: string): string {
+  return COMMAND_DESCRIPTIONS[name] || `Run /${name} command`;
+}
+
+function getCommandArgumentHint(name: string): string {
+  return COMMAND_ARGUMENT_HINTS[name] || '';
+}
+
 // Hook response info
 interface HookResponse {
   hookName: string;
@@ -72,6 +160,8 @@ interface ChatWSState {
   sessionCost: number;
   error?: string;
   model?: string;
+  selectedModel?: string;  // User-selected model
+  selectedPermissionMode: PermissionMode;  // User-selected permission mode
   sessions: SessionInfo[];
   // Session info from init
   tools?: string[];
@@ -84,6 +174,21 @@ interface ChatWSState {
   hookResponses: HookResponse[];
   stopReason?: string;
   messageId?: string;
+  // Available models and commands
+  availableModels: ModelInfo[];
+  slashCommands: SlashCommand[];
+}
+
+const PERMISSION_MODE_KEY = 'chat_permission_mode';
+
+function getSavedPermissionMode(): PermissionMode {
+  if (typeof window === 'undefined') return 'bypassPermissions';
+  return (localStorage.getItem(PERMISSION_MODE_KEY) as PermissionMode) || 'bypassPermissions';
+}
+
+function savePermissionMode(mode: PermissionMode) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PERMISSION_MODE_KEY, mode);
 }
 
 const initialState: ChatWSState = {
@@ -99,6 +204,9 @@ const initialState: ChatWSState = {
   sessionCost: 0,
   sessions: [],
   hookResponses: [],
+  availableModels: [],
+  slashCommands: [],
+  selectedPermissionMode: 'bypassPermissions',
 };
 
 const STORAGE_KEY = 'chat_session_id';
@@ -122,6 +230,7 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
   const [state, setState] = useState<ChatWSState>(() => ({
     ...initialState,
     sessionId: options?.sessionId || getSavedSessionId(),
+    selectedPermissionMode: getSavedPermissionMode(),
   }));
 
   // Refs for accumulating streaming content
@@ -136,12 +245,21 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
       case 'init': {
         const data = ev.data as InitEventData;
         // Store all session info from init event
+        // Convert slash command names to SlashCommand objects (filter ignored)
+        const commands: SlashCommand[] = (data.slashCommands || [])
+          .filter(name => !IGNORED_COMMANDS.has(name))
+          .map(name => ({
+            name,
+            description: getCommandDescription(name),
+            argumentHint: getCommandArgumentHint(name),
+          }));
         setState(s => ({
           ...s,
           model: data.model,
           tools: data.tools,
           skills: data.skills,
           permissionMode: data.permissionMode,
+          slashCommands: commands.length > 0 ? commands : s.slashCommands,
           mcpServers: data.mcpServers?.map(m => ({
             name: m.name,
             status: m.status as 'connected' | 'failed' | 'pending',
@@ -493,6 +611,14 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
           isLoading: false,
         }));
       },
+
+      'chat:models': (data: { models: ModelInfo[] }) => {
+        setState(s => ({ ...s, availableModels: data.models }));
+      },
+
+      'chat:commands': (data: { commands: SlashCommand[] }) => {
+        setState(s => ({ ...s, slashCommands: data.commands }));
+      },
     };
 
     for (const [event, handler] of Object.entries(handlers)) {
@@ -533,8 +659,10 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
       currentPath,
       cwd: options?.cwd,
       mode,
+      model: state.selectedModel,
+      permissionMode: state.selectedPermissionMode,
     });
-  }, [socket, connected, state.sessionId, options?.cwd]);
+  }, [socket, connected, state.sessionId, state.selectedModel, state.selectedPermissionMode, options?.cwd]);
 
   // Abort current session
   const abort = useCallback(() => {
@@ -561,6 +689,9 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     setState(s => ({
       ...initialState,
       sessions: s.sessions,
+      availableModels: s.availableModels,
+      slashCommands: s.slashCommands,
+      selectedModel: s.selectedModel,
       sessionId,
       isLoading: true,
       status: 'connecting',
@@ -568,6 +699,39 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     // Load conversation from JSONL file
     socket.emit('message', 'chat', 'load', { sessionId });
   }, [socket]);
+
+  // Set selected model
+  const setSelectedModel = useCallback((model: string) => {
+    setState(s => ({ ...s, selectedModel: model }));
+  }, []);
+
+  // Fetch available models
+  const fetchModels = useCallback(() => {
+    if (!socket || !connected) return;
+    socket.emit('message', 'chat', 'models', {});
+  }, [socket, connected]);
+
+  // Fetch available slash commands
+  const fetchCommands = useCallback(() => {
+    if (!socket || !connected) return;
+    socket.emit('message', 'chat', 'commands', {});
+  }, [socket, connected]);
+
+  // Set permission mode
+  const setPermissionMode = useCallback((mode: PermissionMode) => {
+    savePermissionMode(mode);
+    setState(s => ({ ...s, selectedPermissionMode: mode }));
+  }, []);
+
+  // Cycle through permission modes (for Tab key)
+  const cyclePermissionMode = useCallback(() => {
+    const modes: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
+    const currentIndex = modes.indexOf(state.selectedPermissionMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    const nextMode = modes[nextIndex];
+    savePermissionMode(nextMode);
+    setState(s => ({ ...s, selectedPermissionMode: nextMode }));
+  }, [state.selectedPermissionMode]);
 
   return {
     ...state,
@@ -577,6 +741,11 @@ export function useChatWS(options?: { sessionId?: string; cwd?: string }) {
     abort,
     newSession,
     selectSession,
+    setSelectedModel,
+    fetchModels,
+    fetchCommands,
+    setPermissionMode,
+    cyclePermissionMode,
     // Derived state
     runningSessions: state.sessions.filter(s => s.state === 'running'),
     completedSessions: state.sessions.filter(s => s.state !== 'running'),

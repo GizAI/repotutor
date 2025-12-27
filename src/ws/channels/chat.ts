@@ -451,6 +451,8 @@ export class ChatChannel implements Channel {
       case 'status': this.status(socket, p.sessionId as string); break;
       case 'list': this.list(socket); break;
       case 'load': await this.loadSession(socket, p.sessionId as string); break;
+      case 'models': await this.getModels(socket); break;
+      case 'commands': await this.getCommands(socket); break;
       default: throw new Error(`Unknown action: ${action}`);
     }
   }
@@ -462,8 +464,9 @@ export class ChatChannel implements Channel {
   }
 
   private async start(socket: Socket, p: Record<string, unknown>) {
-    const { message, sessionId: resume, currentPath, cwd, mode = 'claude-code' } = p as {
-      message: string; sessionId?: string; currentPath?: string; cwd?: string; mode?: 'claude-code' | 'deepagents';
+    const { message, sessionId: resume, currentPath, cwd, mode = 'claude-code', model, permissionMode = 'bypassPermissions' } = p as {
+      message: string; sessionId?: string; currentPath?: string; cwd?: string; mode?: 'claude-code' | 'deepagents'; model?: string;
+      permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
     };
 
     if (resume && this.sessions.get(resume)?.state === 'running') {
@@ -498,13 +501,19 @@ export class ChatChannel implements Channel {
     this.saveSessions();
 
     if (mode === 'deepagents') {
-      this.runDeepAgents(sid, message, currentPath);
+      this.runDeepAgents(sid, message, currentPath, model);
     } else {
-      this.runAgent(sid, message, currentPath);
+      this.runAgent(sid, message, currentPath, model, permissionMode);
     }
   }
 
-  private async runAgent(sid: string, message: string, currentPath?: string) {
+  private async runAgent(
+    sid: string,
+    message: string,
+    currentPath?: string,
+    model?: string,
+    permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' = 'bypassPermissions'
+  ) {
     const session = this.sessions.get(sid);
     if (!session) return;
 
@@ -520,9 +529,18 @@ export class ChatChannel implements Channel {
         abortController: session.abort,
         systemPrompt: { type: 'preset', preset: 'claude_code', append: '한국어로 응답하세요.' },
         tools: { type: 'preset', preset: 'claude_code' },
-        maxTurns: 30,
-        maxBudgetUsd: 1.0,
+        maxTurns: 50,
+        maxBudgetUsd: 5.0,
+        // Permission mode from user selection
+        permissionMode,
+        allowDangerouslySkipPermissions: permissionMode === 'bypassPermissions',
       };
+
+      // Model selection
+      if (model) {
+        options.model = model;
+        session.model = model;
+      }
 
       if (session.sdkSessionId) {
         options.resume = session.sdkSessionId;
@@ -578,7 +596,7 @@ export class ChatChannel implements Channel {
   /**
    * DeepAgents mode - LangGraph based agent
    */
-  private async runDeepAgents(sid: string, message: string, currentPath?: string) {
+  private async runDeepAgents(sid: string, message: string, currentPath?: string, model?: string) {
     const session = this.sessions.get(sid);
     if (!session) return;
 
@@ -730,6 +748,7 @@ export class ChatChannel implements Channel {
             mcpServers: m.mcp_servers,
             permissionMode: m.permissionMode,
             skills: m.skills,
+            slashCommands: m.slash_commands,  // Slash commands from SDK
           },
           ts,
         });
@@ -1037,6 +1056,105 @@ export class ChatChannel implements Channel {
     } catch (e) {
       console.error('[chat] Failed to load session:', e);
       socket.emit('chat:error', { message: 'Failed to load session', sessionId });
+    }
+  }
+
+  /**
+   * Get available models from SDK
+   */
+  private async getModels(socket: Socket) {
+    try {
+      const { query } = await import('@anthropic-ai/claude-agent-sdk');
+
+      // Create a minimal query to access supportedModels
+      const q = query({
+        prompt: '',
+        options: {
+          cwd: process.cwd(),
+          permissionMode: 'bypassPermissions',
+          allowDangerouslySkipPermissions: true,
+        },
+      });
+
+      const models = await q.supportedModels();
+      socket.emit('chat:models', { models });
+
+      // Clean up - abort the query since we just needed the models
+      await q.interrupt();
+    } catch (e) {
+      console.error('[chat] Failed to get models:', e);
+      // Return default models on error
+      socket.emit('chat:models', {
+        models: [
+          { value: 'claude-sonnet-4-20250514', displayName: 'Claude Sonnet 4', description: 'Best balance of speed and intelligence' },
+          { value: 'claude-opus-4-20250514', displayName: 'Claude Opus 4', description: 'Most capable model' },
+          { value: 'claude-haiku-3-5-20250414', displayName: 'Claude Haiku 3.5', description: 'Fastest model' },
+        ],
+      });
+    }
+  }
+
+  /**
+   * Get available slash commands from SDK + custom command directories
+   */
+  private async getCommands(socket: Socket) {
+    try {
+      const { query } = await import('@anthropic-ai/claude-agent-sdk');
+      const matter = await import('gray-matter');
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const os = await import('os');
+
+      // Create a minimal query to access supportedCommands
+      const q = query({
+        prompt: '',
+        options: {
+          cwd: process.cwd(),
+          permissionMode: 'bypassPermissions',
+          allowDangerouslySkipPermissions: true,
+        },
+      });
+
+      const sdkCommands = await q.supportedCommands();
+      await q.interrupt();
+
+      // Scan custom command directories
+      const customCommands: Array<{ name: string; description: string; argumentHint: string }> = [];
+      const commandDirs = [
+        path.join(os.homedir(), '.claude', 'commands'),
+        path.join(process.cwd(), '.claude', 'commands'),
+      ];
+
+      for (const dir of commandDirs) {
+        try {
+          const files = await fs.readdir(dir, { recursive: true });
+          for (const file of files) {
+            if (typeof file === 'string' && file.endsWith('.md')) {
+              try {
+                const content = await fs.readFile(path.join(dir, file), 'utf-8');
+                const { data } = matter.default(content);
+                const name = file.replace(/\.md$/, '').replace(/\//g, '-');
+                customCommands.push({
+                  name,
+                  description: data.description || `Custom command: ${name}`,
+                  argumentHint: data.arguments || '',
+                });
+              } catch {
+                // Skip invalid files
+              }
+            }
+          }
+        } catch {
+          // Directory doesn't exist, skip
+        }
+      }
+
+      // Merge SDK commands with custom commands
+      const allCommands = [...sdkCommands, ...customCommands];
+      socket.emit('chat:commands', { commands: allCommands });
+    } catch (e) {
+      console.error('[chat] Failed to get commands:', e);
+      socket.emit('chat:commands', { commands: [] });
     }
   }
 }

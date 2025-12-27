@@ -89,6 +89,7 @@ export interface InitEventData {
   sessionId: string;
   tools?: string[];
   skills?: string[];
+  slashCommands?: string[];  // Available slash commands
   mcpServers?: { name: string; status: string }[];
   permissionMode?: string;
 }

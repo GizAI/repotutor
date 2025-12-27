@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { getCurrentProjectPath } from '@/lib/giz-config';
 
 const execAsync = promisify(exec);
@@ -49,35 +49,28 @@ export async function POST(request: NextRequest) {
       ? diff.substring(0, maxDiffLength) + '\n... (diff truncated)'
       : diff;
 
-    // Call OpenAI to generate commit message
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    // Call Claude API to generate commit message
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 100,
       messages: [
         {
-          role: 'system',
-          content: `You are a helpful assistant that generates concise, conventional git commit messages.
-Follow these rules:
-1. Use conventional commit format: type(scope): description
-2. Types: feat, fix, docs, style, refactor, test, chore, perf
-3. Keep the message under 72 characters
-4. Be specific but concise
-5. Focus on what changed and why, not how
-6. Return ONLY the commit message, nothing else`
-        },
-        {
           role: 'user',
-          content: `Generate a git commit message for these changes:\n\n${truncatedDiff}`
+          content: `Generate a concise git commit message for these changes. Follow conventional commit format: type(scope): description. Types: feat, fix, docs, style, refactor, test, chore, perf. Keep under 72 characters. Return ONLY the commit message, nothing else.
+
+Changes:
+${truncatedDiff}`
         }
       ],
-      max_tokens: 100,
-      temperature: 0.7,
     });
 
-    const message = completion.choices[0]?.message?.content?.trim() || 'chore: update files';
+    const message = response.content[0].type === 'text'
+      ? response.content[0].text.trim()
+      : 'chore: update files';
 
     return NextResponse.json({ message });
   } catch (error) {

@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,7 +19,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
-import { useChatWS, TimelineItem, SessionInfo } from '@/hooks/useChatWS';
+import Fuse from 'fuse.js';
+import { useChatWS, TimelineItem, SessionInfo, ModelInfo, SlashCommand, PERMISSION_MODES, PermissionMode } from '@/hooks/useChatWS';
 import { ToolCallCard, ContextMeter, CodeBlock } from './parts';
 import { TokenUsagePie } from '@/components/ui/TokenUsagePie';
 import { MicButton } from '@/components/ui/MicButton';
@@ -51,6 +52,10 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
   const [uploadedImages, setUploadedImages] = useState<{ name: string; dataUrl: string }[]>([]);
   const [mode, setMode] = useState<AgentMode>('claude-code');
   const [showModeMenu, setShowModeMenu] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
+  const [commandFilter, setCommandFilter] = useState('');
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [budgetLimit] = useState(() => {
     if (typeof window !== 'undefined') {
       return parseFloat(localStorage.getItem('budgetLimit') || '10');
@@ -74,6 +79,48 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen, showSessions]);
+
+  // Fetch models and commands on connect
+  useEffect(() => {
+    if (chat.connected && mode === 'claude-code') {
+      chat.fetchModels();
+      chat.fetchCommands();
+    }
+  }, [chat.connected, mode]);
+
+  // Fuse.js instance for fuzzy command search
+  const commandFuse = useMemo(() => {
+    if (chat.slashCommands.length === 0) return null;
+    return new Fuse(chat.slashCommands, {
+      keys: ['name', 'description'],
+      threshold: 0.4,  // Allow fuzzy matches
+      distance: 100,
+      includeScore: true,
+    });
+  }, [chat.slashCommands]);
+
+  // Fuzzy search results
+  const filteredCommands = useMemo(() => {
+    if (!commandFilter || !commandFuse) {
+      return chat.slashCommands.slice(0, 10);
+    }
+    const results = commandFuse.search(commandFilter);
+    return results.slice(0, 10).map(r => r.item);
+  }, [commandFilter, commandFuse, chat.slashCommands]);
+
+  // Handle slash command detection
+  useEffect(() => {
+    if (input.startsWith('/') && mode === 'claude-code') {
+      const filter = input.slice(1).split(' ')[0].toLowerCase();  // Only match command name, not args
+      setCommandFilter(filter);
+      setSelectedCommandIndex(0);  // Reset selection on filter change
+      // Only show suggestions if we're still typing the command (no space after command name)
+      const hasSpace = input.indexOf(' ') > 0;
+      setShowCommandSuggestions(!hasSpace || filter.length === 0);
+    } else {
+      setShowCommandSuggestions(false);
+    }
+  }, [input, mode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -101,9 +148,43 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
   }, [input, chat, currentPath, mode]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Command suggestion navigation
+    if (showCommandSuggestions && filteredCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedCommandIndex(i => Math.min(i + 1, filteredCommands.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedCommandIndex(i => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const cmd = filteredCommands[selectedCommandIndex];
+        if (cmd) {
+          setInput(`/${cmd.name} `);
+          setShowCommandSuggestions(false);
+          setSelectedCommandIndex(0);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowCommandSuggestions(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    }
+    // Tab to cycle permission mode (when input is empty)
+    if (e.key === 'Tab' && mode === 'claude-code' && !input.trim()) {
+      e.preventDefault();
+      chat.cyclePermissionMode();
     }
   };
 
@@ -218,11 +299,54 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Model badge */}
-          {chat.model && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] font-mono">
-              {chat.model.replace('claude-', '').replace(/-\d{8}$/, '')}
-            </span>
+          {/* Model selector */}
+          {mode === 'claude-code' && (
+            <div className="relative">
+              <button
+                onClick={() => setShowModelMenu(!showModelMenu)}
+                className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] font-mono hover:bg-[var(--hover-bg)] transition-colors"
+              >
+                {(chat.selectedModel || chat.model || 'sonnet-4').replace('claude-', '').replace(/-\d{8}$/, '')}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <AnimatePresence>
+                {showModelMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="absolute top-full right-0 mt-1 w-64 py-1 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] shadow-lg z-50"
+                  >
+                    {(chat.availableModels.length > 0 ? chat.availableModels : [
+                      { value: 'claude-sonnet-4-20250514', displayName: 'Claude Sonnet 4', description: 'Best balance' },
+                      { value: 'claude-opus-4-20250514', displayName: 'Claude Opus 4', description: 'Most capable' },
+                      { value: 'claude-haiku-3-5-20250414', displayName: 'Claude Haiku 3.5', description: 'Fastest' },
+                    ]).map((m) => (
+                      <button
+                        key={m.value}
+                        onClick={() => { chat.setSelectedModel(m.value); setShowModelMenu(false); }}
+                        className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-[var(--hover-bg)] ${
+                          (chat.selectedModel || chat.model) === m.value ? 'bg-[var(--accent-soft)]' : ''
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="text-xs font-medium text-[var(--text-primary)]">{m.displayName}</div>
+                          <div className="text-[9px] text-[var(--text-tertiary)]">{m.description}</div>
+                        </div>
+                        {(chat.selectedModel || chat.model) === m.value && (
+                          <svg className="w-4 h-4 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
 
           {/* Active tools indicator */}
@@ -250,6 +374,20 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
               isCompacting={chat.contextInfo.isCompacting} />
           )}
         </div>
+
+        {/* Permission Mode Toggle */}
+        {mode === 'claude-code' && (
+          <button
+            onClick={() => chat.cyclePermissionMode()}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+              PERMISSION_MODES.find(m => m.mode === chat.selectedPermissionMode)?.color || 'text-blue-500'
+            } hover:bg-[var(--hover-bg)]`}
+            title={`Permission Mode: ${chat.selectedPermissionMode} (Tab to cycle)`}
+          >
+            <span>{PERMISSION_MODES.find(m => m.mode === chat.selectedPermissionMode)?.icon}</span>
+            <span>{PERMISSION_MODES.find(m => m.mode === chat.selectedPermissionMode)?.label}</span>
+          </button>
+        )}
 
         {/* Session info toggle */}
         {(chat.mcpServers?.length || chat.tools?.length || chat.sessionCost > 0) && (
@@ -537,9 +675,53 @@ export function ChatBotNew({ isOpen, onClose, currentPath, fullScreen = false }:
           </div>
         )}
 
+        {/* Slash command suggestions */}
+        <AnimatePresence>
+          {showCommandSuggestions && chat.slashCommands.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="mb-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-lg overflow-hidden"
+            >
+              <div className="px-3 py-1.5 text-[10px] text-[var(--text-tertiary)] border-b border-[var(--border-default)] bg-[var(--bg-secondary)]">
+                Slash Commands
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {filteredCommands.map((cmd, idx) => (
+                  <button
+                    key={cmd.name}
+                    onClick={() => {
+                      setInput(`/${cmd.name} `);
+                      setShowCommandSuggestions(false);
+                      setSelectedCommandIndex(0);
+                      inputRef.current?.focus();
+                    }}
+                    onMouseEnter={() => setSelectedCommandIndex(idx)}
+                    className={`w-full px-3 py-2 text-left flex items-center gap-3 transition-colors ${
+                      idx === selectedCommandIndex
+                        ? 'bg-[var(--accent-soft)] text-[var(--text-primary)]'
+                        : 'hover:bg-[var(--hover-bg)]'
+                    }`}
+                  >
+                    <code className="text-xs font-mono text-[var(--accent)]">/{cmd.name}</code>
+                    <span className="text-xs text-[var(--text-secondary)] truncate flex-1">{cmd.description}</span>
+                    {cmd.argumentHint && (
+                      <span className="text-[10px] text-[var(--text-tertiary)] font-mono">{cmd.argumentHint}</span>
+                    )}
+                  </button>
+                ))}
+                {filteredCommands.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-[var(--text-tertiary)]">No matching commands</div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <form onSubmit={handleSubmit} className="flex gap-2">
           <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
-            placeholder={chat.connected ? "Type a message..." : "Connecting..."}
+            placeholder={chat.connected ? "Type / for commands, or ask anything..." : "Connecting..."}
             disabled={!chat.connected} rows={1}
             className="input flex-1 py-2.5 resize-none disabled:opacity-50" style={{ maxHeight: '120px' }} />
 
