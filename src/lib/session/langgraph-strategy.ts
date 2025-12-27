@@ -79,7 +79,7 @@ export class LangGraphStrategy implements AISessionStrategy {
       const memorySaver = new MemorySaver();
 
       // Build system prompt
-      const systemPrompt = `당신은 RepoTutor AI입니다.
+      const systemPrompt = `당신은 Giz Code AI입니다.
 현재 리포지토리: ${this.options.repoName}
 ${this.options.repoDescription ? `설명: ${this.options.repoDescription}` : ''}
 

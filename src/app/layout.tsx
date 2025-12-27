@@ -3,9 +3,9 @@ import './globals.css';
 import { ThemeProvider, Background, GlobalProviders } from '@/components/layout';
 
 export const metadata: Metadata = {
-  title: 'RepoTutor - 코드베이스 탐색 & AI 가이드',
+  title: 'Giz Code - 코드베이스 탐색 & AI 가이드',
   description: '리포지토리 구조를 탐색하고, AI와 함께 코드를 이해하세요.',
-  keywords: ['RepoTutor', 'Code Explorer', 'AI', '코드 분석', '개발 가이드'],
+  keywords: ['Giz Code', 'Code Explorer', 'AI', '코드 분석', '개발 가이드'],
 };
 
 // Inline script to prevent theme flash - runs before React hydration

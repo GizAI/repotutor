@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
                 type: 'preset',
                 preset: 'claude_code',
                 append: `
-## RepoTutor 컨텍스트
-당신은 RepoTutor AI입니다. 사용자가 코드베이스를 탐색하고 이해할 수 있도록 도와줍니다.
+## Giz Code 컨텍스트
+당신은 Giz Code AI입니다. 사용자가 코드베이스를 탐색하고 이해할 수 있도록 도와줍니다.
 현재 리포지토리: ${config.name}
 ${config.description ? `설명: ${config.description}` : ''}
 

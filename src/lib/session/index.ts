@@ -1,7 +1,7 @@
 /**
  * Session Management Module
  *
- * Unified session management for RepoTutor AI modes:
+ * Unified session management for Giz Code AI modes:
  * - Claude Code (full agent SDK)
  * - DeepAgents (LangGraph)
  *

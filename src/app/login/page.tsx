@@ -46,7 +46,7 @@ function LoginForm() {
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent)] text-white mb-4">
           <Icon name="book" className="h-6 w-6" />
         </div>
-        <h1 className="text-heading-lg text-[var(--text-primary)]">RepoTutor</h1>
+        <h1 className="text-heading-lg text-[var(--text-primary)]">Giz Code</h1>
         <p className="text-caption text-[var(--text-secondary)] mt-2">
           Enter password to continue
         </p>

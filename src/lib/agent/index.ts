@@ -1,5 +1,5 @@
 /**
- * RepoTutor AI Agent
+ * Giz Code AI Agent
  *
  * Uses LangGraph's ReAct agent for intelligent code exploration and Q&A
  */
@@ -10,7 +10,7 @@ import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { repoTools } from './tools';
 import { getRepoConfig } from '@/lib/repo-config';
 
-const SYSTEM_PROMPT = `You are RepoTutor AI, an expert at exploring and explaining code repositories.
+const SYSTEM_PROMPT = `You are Giz Code AI, an expert at exploring and explaining code repositories.
 
 ## Your Role
 You help developers understand codebases by:

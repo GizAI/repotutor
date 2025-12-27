@@ -193,7 +193,7 @@ async function streamClaudeCode(params: {
         type: 'preset',
         preset: 'claude_code',
         append: `
-## RepoTutor 컨텍스트
+## Giz Code 컨텍스트
 리포지토리: ${config.name}
 ${config.description ? `설명: ${config.description}` : ''}
 
@@ -539,7 +539,7 @@ async function streamDeepAgents(params: {
   const memorySaver = new MemorySaver();
 
   // System prompt
-  const systemPrompt = `RepoTutor AI입니다.
+  const systemPrompt = `Giz Code AI입니다.
 리포지토리: ${config.name}
 ${config.description ? `설명: ${config.description}` : ''}
 

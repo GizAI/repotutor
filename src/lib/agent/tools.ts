@@ -1,5 +1,5 @@
 /**
- * RepoTutor Agent Tools
+ * Giz Code Agent Tools
  *
  * Custom tools for the deep agent to explore and understand the codebase
  */

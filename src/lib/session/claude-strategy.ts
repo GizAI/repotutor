@@ -68,7 +68,7 @@ export class ClaudeCodeStrategy implements AISessionStrategy {
             type: 'preset',
             preset: 'claude_code',
             append: `
-## RepoTutor Context
+## Giz Code Context
 현재 리포지토리: ${this.options.repoName}
 ${this.options.repoDescription ? `설명: ${this.options.repoDescription}` : ''}
 

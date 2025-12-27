@@ -28,7 +28,7 @@ export function HomePageClient({ docs, repoName = 'Repository', repoDescription 
             variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
             className="flex flex-wrap items-center gap-2"
           >
-            <Chip variant="accent">RepoTutor</Chip>
+            <Chip variant="accent">Giz Code</Chip>
             <Chip>AI-Powered</Chip>
           </motion.div>
 

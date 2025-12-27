@@ -4,7 +4,7 @@
 
 set -e
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 RELEASE_URL="https://github.com/GizAI/code/releases/download/v${VERSION}/giz-code-linux-x64.tar.gz"
 INSTALL_DIR="${GIZ_CODE_DIR:-$HOME/giz-code}"
 
@@ -92,16 +92,24 @@ EOF
     # PM2
     log "Starting with PM2..."
     cd "$INSTALL_DIR"
-    pm2 delete "$PM2_NAME" 2>/dev/null || true
+    pm2 delete "$PM2_NAME" "${PM2_NAME}-next" 2>/dev/null || true
 
     cat > ecosystem.config.cjs << PMEOF
 module.exports = {
-  apps: [{
-    name: '$PM2_NAME',
-    script: 'server.js',
-    cwd: '$INSTALL_DIR',
-    env: { NODE_ENV: 'production', PORT: '$PORT', HOSTNAME: '0.0.0.0' }
-  }]
+  apps: [
+    {
+      name: '${PM2_NAME}-next',
+      script: 'server.js',
+      cwd: '$INSTALL_DIR',
+      env: { NODE_ENV: 'production', PORT: '3000', HOSTNAME: '127.0.0.1' }
+    },
+    {
+      name: '$PM2_NAME',
+      script: 'gateway-bundle.js',
+      cwd: '$INSTALL_DIR',
+      env: { NODE_ENV: 'production', PORT: '$PORT', NEXT_PORT: '3000' }
+    }
+  ]
 };
 PMEOF
 
